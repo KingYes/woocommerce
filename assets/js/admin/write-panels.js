@@ -171,10 +171,9 @@ jQuery( function($){
 	});
 
 	$('a.edit_address').click(function(event){
-
 		$(this).hide();
-		$(this).closest('.order_data').find('div.address').hide();
-		$(this).closest('.order_data').find('div.edit_address').show();
+		$(this).closest('.order_data_column').find('div.address').hide();
+		$(this).closest('.order_data_column').find('div.edit_address').show();
 		event.preventDefault();
 	});
 
@@ -297,7 +296,7 @@ jQuery( function($){
 	$('span.inline_total').closest('.totals_group').find('input').change();
 
 	// Calculate totals
-	$('button.calc_line_taxes').live('click', function(){
+	$('button.calc_line_taxes').click(function(){
 		// Block write panel
 		$('.woocommerce_order_items_wrapper').block({ message: null, overlayCSS: { background: '#fff url(' + woocommerce_writepanel_params.plugin_url + '/assets/images/ajax-loader.gif) no-repeat center', opacity: 0.6 } });
 
@@ -379,7 +378,7 @@ jQuery( function($){
 	});
 
 
-	$('button.calc_totals').live('click', function(){
+	$('button.calc_totals').click( function(){
 		// Block write panel
 		$('#woocommerce-order-totals').block({ message: null, overlayCSS: { background: '#fff url(' + woocommerce_writepanel_params.plugin_url + '/assets/images/ajax-loader.gif) no-repeat center', opacity: 0.6 } });
 
@@ -543,7 +542,7 @@ jQuery( function($){
 	});
 
 	// Add some meta to a line item
-	$('#order_items_list button.add_order_item_meta').live('click', function(){
+	$('#order_items_list').on('click', 'button.add_order_item_meta', function(){
 
 		var $button = $(this);
 		var $item = $button.closest('tr.item');
@@ -569,7 +568,7 @@ jQuery( function($){
 		return false;
 	});
 
-	$('#order_items_list button.remove_order_item_meta').live('click', function(){
+	$('#order_items_list').on('click', 'button.remove_order_item_meta', function(){
 		var answer = confirm( woocommerce_writepanel_params.remove_item_meta )
 		if ( answer ) {
 			var $row = $(this).closest('tr');
@@ -645,34 +644,6 @@ jQuery( function($){
 
 			}
 
-		} else if ( action == 'refund' ) {
-
-			var order_id = $('#post_ID').val();
-
-			var answer = confirm( woocommerce_writepanel_params.refund_item_notice );
-
-			if ( answer ) {
-
-				$('table.woocommerce_order_items').block({ message: null, overlayCSS: { background: '#fff url(' + woocommerce_writepanel_params.plugin_url + '/assets/images/ajax-loader.gif) no-repeat center', opacity: 0.6 } });
-
-				var data = {
-					order_id:           order_id,
-					order_item_ids: 	item_ids,
-					action: 			'woocommerce_refund_order_item',
-					security: 			woocommerce_writepanel_params.order_item_nonce
-				};
-
-				$.ajax( {
-					url: woocommerce_writepanel_params.ajax_url,
-					data: data,
-					type: 'POST',
-					success: function( response ) {
-						$('table.woocommerce_order_items').unblock();
-					}
-				} );
-
-			}
-
 		} else if ( action == 'reduce_stock' ) {
 
 			$('table.woocommerce_order_items').block({ message: null, overlayCSS: { background: '#fff url(' + woocommerce_writepanel_params.plugin_url + '/assets/images/ajax-loader.gif) no-repeat center', opacity: 0.6 } });
@@ -742,7 +713,7 @@ jQuery( function($){
 	} );
 
 
-	$('button.load_customer_billing').live('click', function(){
+	$('button.load_customer_billing').click(function(){
 
 		var answer = confirm(woocommerce_writepanel_params.load_billing);
 		if (answer){
@@ -792,7 +763,7 @@ jQuery( function($){
 		return false;
 	});
 
-	$('button.load_customer_shipping').live('click', function(){
+	$('button.load_customer_shipping').click(function(){
 
 		var answer = confirm(woocommerce_writepanel_params.load_shipping);
 		if (answer){
@@ -840,7 +811,7 @@ jQuery( function($){
 		return false;
 	});
 
-	$('button.billing-same-as-shipping').live('click', function(){
+	$('button.billing-same-as-shipping').click(function(){
 		var answer = confirm(woocommerce_writepanel_params.copy_billing);
 		if (answer){
 			$('input#_shipping_first_name').val( $('input#_billing_first_name').val() );
@@ -857,7 +828,7 @@ jQuery( function($){
 	});
 
 	// Add a tax row
-	$('a.add_tax_row').live('click', function(){
+	$('a.add_tax_row').click(function(){
 
 		var data = {
 			order_id: 	woocommerce_writepanel_params.post_id,
@@ -880,7 +851,7 @@ jQuery( function($){
 	});
 
 	// Delete a tax row
-	$('a.delete_tax_row').live('click', function(){
+	$('a.delete_tax_row').click(function(){
 		$tax_row = $(this).closest('.tax_row');
 
 		var tax_row_id = $tax_row.attr( 'data-order_item_id' )
@@ -912,64 +883,79 @@ jQuery( function($){
 		// Get value
 		var select_val = $(this).val();
 
-		$('.hide_if_grouped, .hide_if_external').show();
-		$('.show_if_simple, .show_if_variable, .show_if_grouped, .show_if_external').hide();
-
-		if (select_val=='simple') {
-			$('.show_if_simple').show();
+		if (select_val=='variable') {
 			$('input#_manage_stock').change();
-		}
-
-		else if (select_val=='variable') {
-			$('.show_if_variable').show();
-			$('input#_manage_stock').change();
-			$('input#_downloadable').prop('checked', false).change();
-			$('input#_virtual').removeAttr('checked').change();
+			$('input#_downloadable').prop('checked', false);
+			$('input#_virtual').removeAttr('checked');
 		}
 
 		else if (select_val=='grouped') {
-			$('.show_if_grouped').show();
-			$('input#_downloadable').prop('checked', false).change();
-			$('input#_virtual').removeAttr('checked').change();
-			$('.hide_if_grouped').hide();
+			$('input#_downloadable').prop('checked', false);
+			$('input#_virtual').removeAttr('checked');
 		}
 
 		else if (select_val=='external') {
-			$('.show_if_external').show();
-			$('input#_downloadable').prop('checked', false).change();
-			$('input#_virtual').removeAttr('checked').change();
-			$('.hide_if_external').hide();
+			$('input#_downloadable').prop('checked', false);
+			$('input#_virtual').removeAttr('checked');
 		}
+
+
+		show_and_hide_panels();
 
 		$('ul.wc-tabs li:visible').eq(0).find('a').click();
 
 		$('body').trigger('woocommerce-product-type-change', select_val, $(this) );
-
 	}).change();
 
-	$('input#_downloadable').change(function(){
+	$('input#_downloadable, input#_virtual').change(function(){
+		show_and_hide_panels();
+	});
 
-		$('.show_if_downloadable').hide();
+	function show_and_hide_panels() {
+		var product_type    = $('select#product-type').val();
+		var is_virtual      = $('input#_virtual:checked').size();
+		var is_downloadable = $('input#_downloadable:checked').size();
 
-		if ($('input#_downloadable').is(':checked')) {
+		// Hide/Show all with rules
+		$('.hide_if_simple, .hide_if_grouped, .hide_if_variable, .hide_if_external, .hide_if_downloadable, .hide_if_virtual').show();
+		$('.show_if_simple, .show_if_grouped, .show_if_variable, .show_if_external, .show_if_downloadable, .show_if_virtual').hide();
+
+		// Shows rules
+		if ( is_downloadable ) {
 			$('.show_if_downloadable').show();
 		}
-
-		if ($('.downloads_tab').is('.active')) $('ul.wc-tabs li:visible').eq(0).find('a').click();
-
-	}).change();
-
-	$('input#_virtual').change(function(){
-
-		$('.show_if_virtual').hide();
-		$('.hide_if_virtual').show();
-
-		if ($('input#_virtual').is(':checked')) {
+		if ( is_virtual ) {
 			$('.show_if_virtual').show();
+		}
+
+		if ( product_type == 'simple' ) {
+			$('.show_if_simple').show();
+		} else if ( product_type == 'variable' ) {
+			$('.show_if_variable').show();
+		} else if ( product_type == 'grouped' ) {
+			$('.show_if_grouped').show();
+		} else if ( product_type == 'external' ) {
+			$('.show_if_external').show();
+		}
+
+		// Hide rules
+		if ( is_downloadable ) {
+			$('.hide_if_downloadable').hide();
+		}
+		if ( is_virtual ) {
 			$('.hide_if_virtual').hide();
 		}
 
-	}).change();
+		if ( product_type == 'simple' ) {
+			$('.hide_if_simple').hide();
+		} else if ( product_type == 'variable' ) {
+			$('.hide_if_variable').hide();
+		} else if ( product_type == 'grouped' ) {
+			$('.hide_if_grouped').hide();
+		} else if ( product_type == 'external' ) {
+			$('.hide_if_external').hide();
+		}
+	}
 
 
 	// Sale price schedule
@@ -1064,22 +1050,20 @@ jQuery( function($){
 
 	// META BOXES
 
-		jQuery('.expand_all').click(function(){
-			jQuery(this).closest('.wc-metaboxes-wrapper').find('.wc-metabox > table').show();
-			return false;
-		});
-
-		jQuery('.close_all').click(function(){
-			jQuery(this).closest('.wc-metaboxes-wrapper').find('.wc-metabox > table').hide();
-			return false;
-		});
-
 		// Open/close
 		jQuery('.wc-metaboxes-wrapper').on('click', '.wc-metabox h3', function(event){
 			// If the user clicks on some form input inside the h3, like a select list (for variations), the box should not be toggled
 			if ($(event.target).filter(':input, option').length) return;
 
 			jQuery(this).next('.wc-metabox-content').toggle();
+		})
+		.on('click', '.expand_all', function(event){
+			jQuery(this).closest('.wc-metaboxes-wrapper').find('.wc-metabox > table').show();
+			return false;
+		})
+		.on('click', '.close_all', function(event){
+			jQuery(this).closest('.wc-metaboxes-wrapper').find('.wc-metabox > table').hide();
+			return false;
 		});
 
 		jQuery('.wc-metabox.closed').each(function(){
@@ -1272,7 +1256,7 @@ jQuery( function($){
 
 			var data = {
 				post_id: 		woocommerce_writepanel_params.post_id,
-				data:			$('.woocommerce_attributes').find('input, select').serialize(),
+				data:			$('.woocommerce_attributes').find('input, select, textarea').serialize(),
 				action: 		'woocommerce_save_attributes',
 				security: 		woocommerce_writepanel_params.save_attributes_nonce
 			};
@@ -1296,32 +1280,74 @@ jQuery( function($){
 		});
 
 	// Uploading files
-	var file_path_field;
+	var downloadable_file_frame;
 
-	window.send_to_editor_default = window.send_to_editor;
+	jQuery(document).on( 'click', '.upload_file_button', function( event ){
 
-	jQuery('.upload_file_button').live('click', function(){
+		var $el = $(this);
+		var $file_path_field = $el.parent().find('.file_paths');
+		var file_paths = $file_path_field.val();
 
-		file_path_field = jQuery(this).parent().find('.file_paths');
+		event.preventDefault();
 
-		formfield = jQuery(file_path_field).attr('name');
-
-		window.send_to_editor = window.send_to_download_url;
-
-		tb_show('', 'media-upload.php?type=downloadable_product&amp;from=wc01&amp;TB_iframe=true');
-		return false;
-	});
-
-	window.send_to_download_url = function(html) {
-
-		file_url = jQuery(html).attr('href');
-		if (file_url) {
-			jQuery(file_path_field).val(jQuery(file_path_field).val() ? jQuery(file_path_field).val() + "\n" + file_url : file_url);
+		// If the media frame already exists, reopen it.
+		if ( downloadable_file_frame ) {
+			downloadable_file_frame.open();
+			return;
 		}
-		tb_remove();
-		window.send_to_editor = window.send_to_editor_default;
 
-	}
+		var downloadable_file_states = [
+			// Main states.
+			new wp.media.controller.Library({
+				library:   wp.media.query(),
+				multiple:  true,
+				title:     $el.data('choose'),
+				priority:  20,
+				filterable: 'uploaded',
+			})
+		];
+
+		// Create the media frame.
+		downloadable_file_frame = wp.media.frames.downloadable_file = wp.media({
+			// Set the title of the modal.
+			title: $el.data('choose'),
+			library: {
+				type: ''
+			},
+			button: {
+				text: $el.data('update'),
+			},
+			multiple: true,
+			states: downloadable_file_states,
+		});
+
+		// When an image is selected, run a callback.
+		downloadable_file_frame.on( 'select', function() {
+
+			var selection = downloadable_file_frame.state().get('selection');
+
+			selection.map( function( attachment ) {
+
+				attachment = attachment.toJSON();
+
+				if ( attachment.url )
+					file_paths = file_paths ? file_paths + "\n" + attachment.url : attachment.url
+
+			} );
+
+			$file_path_field.val( file_paths );
+		});
+
+		// Set post to 0 and set our custom type
+		downloadable_file_frame.on( 'ready', function() {
+			downloadable_file_frame.uploader.options.uploader.params = {
+				type: 'downloadable_product'
+			};
+		});
+
+		// Finally, open the modal.
+		downloadable_file_frame.open();
+	});
 
 });
 

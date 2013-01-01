@@ -291,8 +291,9 @@ if ( ! function_exists( 'woocommerce_taxonomy_archive_description' ) ) {
 	 * @return void
 	 */
 	function woocommerce_taxonomy_archive_description() {
-		if ( is_tax( array( 'product_cat', 'product_tag' ) ) && get_query_var( 'paged' ) == 0 )
-			echo '<div class="term-description">' . wpautop( wptexturize( term_description() ) ) . '</div>';
+		$term_description = term_description();
+		if ( $term_description && is_tax( array( 'product_cat', 'product_tag' ) ) && get_query_var( 'paged' ) == 0 )
+			echo '<div class="term-description">' . wpautop( wptexturize( $term_description ) ) . '</div>';
 	}
 }
 if ( ! function_exists( 'woocommerce_product_archive_description' ) ) {
@@ -929,7 +930,9 @@ if ( ! function_exists( 'woocommerce_checkout_login_form' ) ) {
 	 * @return void
 	 */
 	function woocommerce_checkout_login_form() {
-		woocommerce_get_template( 'checkout/form-login.php' );
+		global $woocommerce;
+
+		woocommerce_get_template( 'checkout/form-login.php', array( 'checkout' => $woocommerce->checkout() ) );
 	}
 }
 
@@ -943,16 +946,16 @@ if ( ! function_exists( 'woocommerce_breadcrumb' ) ) {
 	 */
 	function woocommerce_breadcrumb( $args = array() ) {
 
-		$defaults = array(
-			'delimiter'  => ' &rsaquo; ',
-			'wrap_before'  => '<div id="breadcrumb" itemprop="breadcrumb">',
-			'wrap_after' => '</div>',
-			'before'   => '',
-			'after'   => '',
-			'home'    => null
-		);
+		$defaults = apply_filters( 'woocommerce_breadcrumb_defaults', array(
+			'delimiter'   => ' &rsaquo; ',
+			'wrap_before' => '<div class="wc-breadcrumb" itemprop="breadcrumb">',
+			'wrap_after'  => '</div>',
+			'before'      => '',
+			'after'       => '',
+			'home'        => _x( 'Home', 'breadcrumb', 'woocommerce' ),
+		) );
 
-		$args = wp_parse_args( $args, $defaults  );
+		$args = wp_parse_args( $args, $defaults );
 
 		woocommerce_get_template( 'shop/breadcrumb.php', $args );
 	}
@@ -968,7 +971,9 @@ if ( ! function_exists( 'woocommerce_order_review' ) ) {
 	 * @return void
 	 */
 	function woocommerce_order_review() {
-		woocommerce_get_template( 'checkout/review-order.php' );
+		global $woocommerce;
+
+		woocommerce_get_template( 'checkout/review-order.php', array( 'checkout' => $woocommerce->checkout() ) );
 	}
 }
 
@@ -982,7 +987,9 @@ if ( ! function_exists( 'woocommerce_checkout_coupon_form' ) ) {
 	 * @return void
 	 */
 	function woocommerce_checkout_coupon_form() {
-		woocommerce_get_template( 'checkout/form-coupon.php' );
+		global $woocommerce;
+
+		woocommerce_get_template( 'checkout/form-coupon.php', array( 'checkout' => $woocommerce->checkout() ) );
 	}
 }
 
@@ -1224,23 +1231,30 @@ if ( ! function_exists( 'woocommerce_form_field' ) ) {
 		global $woocommerce;
 
 		$defaults = array(
-			'type'        => 'text',
-			'label'       => '',
-			'placeholder' => '',
-			'maxlength'   => false,
-			'required'    => false,
-			'class'       => array(),
-			'label_class' => array(),
-			'return'      => false,
-			'options'     => array(),
-			'custom_attributes'  => array()
+			'type'              => 'text',
+			'label'             => '',
+			'placeholder'       => '',
+			'maxlength'         => false,
+			'required'          => false,
+			'class'             => array(),
+			'label_class'       => array(),
+			'return'            => false,
+			'options'           => array(),
+			'custom_attributes' => array(),
+			'validate'          => array()
 		);
 
 		$args = wp_parse_args( $args, $defaults  );
 
 		if ( ( ! empty( $args['clear'] ) ) ) $after = '<div class="clear"></div>'; else $after = '';
 
-		$required = ( $args['required']  ) ? ' <abbr class="required" title="' . esc_attr__( 'required', 'woocommerce'  ) . '">*</abbr>' : '';
+		if ( $args['required'] ) {
+			$args['class'][] = 'validate-required';
+			$required = ' <abbr class="required" title="' . esc_attr__( 'required', 'woocommerce'  ) . '">*</abbr>';
+		} else {
+			$required = '';
+		}
+
 		$args['maxlength'] = ( $args['maxlength'] ) ? 'maxlength="' . absint( $args['maxlength'] ) . '"' : '';
 
 		// Custom attribute handling
@@ -1249,6 +1263,10 @@ if ( ! function_exists( 'woocommerce_form_field' ) ) {
 		if ( ! empty( $args['custom_attributes'] ) && is_array( $args['custom_attributes'] ) )
 			foreach ( $args['custom_attributes'] as $attribute => $value )
 				$custom_attributes[] = esc_attr( $attribute ) . '="' . esc_attr( $value ) . '"';
+
+		if ( ! empty( $args['validate'] ) )
+			foreach( $args['validate'] as $validate )
+				$args['class'][] = 'validate-' . $validate;
 
 		switch ( $args['type'] ) {
 		case "country" :

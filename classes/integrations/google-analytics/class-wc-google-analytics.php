@@ -26,28 +26,25 @@ class WC_Google_Analytics extends WC_Integration {
         $this->method_title     	= __( 'Google Analytics', 'woocommerce' );
         $this->method_description	= __( 'Google Analytics is a free service offered by Google that generates detailed statistics about the visitors to a website.', 'woocommerce' );
 
-		// Load the form fields.
-		$this->init_form_fields();
-
 		// Load the settings.
 		$this->init_settings();
 
 		// Define user set variables
-		$this->ga_id 							= $this->settings['ga_id'];
-		$this->ga_standard_tracking_enabled 	= $this->settings['ga_standard_tracking_enabled'];
-		$this->ga_ecommerce_tracking_enabled 	= $this->settings['ga_ecommerce_tracking_enabled'];
-		$this->ga_event_tracking_enabled		= $this->settings['ga_event_tracking_enabled'];
+		$this->ga_id 							= $this->get_option( 'ga_id' );
+		$this->ga_standard_tracking_enabled 	= $this->get_option( 'ga_standard_tracking_enabled' );
+		$this->ga_ecommerce_tracking_enabled 	= $this->get_option( 'ga_ecommerce_tracking_enabled' );
+		$this->ga_event_tracking_enabled		= $this->get_option( 'ga_event_tracking_enabled' );
 
 		// Actions
-		add_action( 'woocommerce_update_options_integration_google_analytics', array( &$this, 'process_admin_options') );
+		add_action( 'woocommerce_update_options_integration_google_analytics', array( $this, 'process_admin_options') );
 
 		// Tracking code
-		add_action( 'wp_footer', array( &$this, 'google_tracking_code' ) );
-		add_action( 'woocommerce_thankyou', array( &$this, 'ecommerce_tracking_code' ) );
+		add_action( 'wp_footer', array( $this, 'google_tracking_code' ) );
+		add_action( 'woocommerce_thankyou', array( $this, 'ecommerce_tracking_code' ) );
 
 		// Event tracking code
-		add_action( 'woocommerce_after_add_to_cart_button', array( &$this, 'add_to_cart' ) );
-		add_action( 'woocommerce_after_shop_loop', array( &$this, 'loop_add_to_cart' ) );
+		add_action( 'woocommerce_after_add_to_cart_button', array( $this, 'add_to_cart' ) );
+		add_action( 'woocommerce_after_shop_loop', array( $this, 'loop_add_to_cart' ) );
     }
 
 
@@ -154,7 +151,7 @@ class WC_Google_Analytics extends WC_Integration {
 		if ( ! $tracking_id ) return;
 
 		// Doing eCommerce tracking so unhook standard tracking from the footer
-		remove_action( 'wp_footer', array( &$this, 'google_tracking_code' ) );
+		remove_action( 'wp_footer', array( $this, 'google_tracking_code' ) );
 
 		// Get the order and output tracking code
 		$order = new WC_Order( $order_id );
@@ -254,7 +251,7 @@ class WC_Google_Analytics extends WC_Integration {
 		$parameters = array();
 		// Add single quotes to allow jQuery to be substituted into _trackEvent parameters
 		$parameters['category'] = "'" . __( 'Products', 'woocommerce' ) . "'";
-		$parameters['action'] = "'" . __( 'Add to Cart', 'woocommerce' ) . "'";
+		$parameters['action'] = "'" . __( 'Add to cart', 'woocommerce' ) . "'";
 		$parameters['label'] = "'#" . esc_js( $product->id ) . "'";
 
 		$this->event_tracking_code( $parameters, '.single_add_to_cart_button' );

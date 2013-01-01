@@ -165,16 +165,51 @@ function woocommerce_tax_rates_setting() {
 				return false;
 			});
 
+			var controlled = false;
 			var shifted = false;
+			var hasFocus = false;
 
-			jQuery(document).bind('keyup keydown', function(e){shifted = e.shiftKey} );
+			jQuery(document).bind('keyup keydown', function(e){ shifted = e.shiftKey; controlled = e.ctrlKey || e.metaKey } );
 
-			jQuery('.wc_tax_rates input').live( 'click focus', function( e ) {
-				if ( ! shifted ) {
-					jQuery('.wc_tax_rates tr').removeClass('current');
+			jQuery('#rates').on( 'focus click', 'input', function( e ) {
+
+				$this_row = jQuery(this).closest('tr');
+
+				if ( ( e.type == 'focus' && hasFocus != $this_row.index() ) || ( e.type == 'click' && jQuery(this).is(':focus') ) ) {
+
+					hasFocus = $this_row.index();
+
+					if ( ! shifted && ! controlled ) {
+						jQuery('#rates tr').removeClass('current').removeClass('last_selected');
+						$this_row.addClass('current').addClass('last_selected');
+					} else if ( shifted ) {
+						jQuery('#rates tr').removeClass('current');
+						$this_row.addClass('selected_now').addClass('current');
+
+						if ( jQuery('#rates tr.last_selected').size() > 0 ) {
+							if ( $this_row.index() > jQuery('#rates tr.last_selected').index() ) {
+								jQuery('#rates tr').slice( jQuery('#rates tr.last_selected').index(), $this_row.index() ).addClass('current');
+							} else {
+								jQuery('#rates tr').slice( $this_row.index(), jQuery('#rates tr.last_selected').index() + 1 ).addClass('current');
+							}
+						}
+
+						jQuery('#rates tr').removeClass('last_selected');
+						$this_row.addClass('last_selected');
+					} else {
+						jQuery('#rates tr').removeClass('last_selected');
+						if ( controlled && jQuery(this).closest('tr').is('.current') ) {
+							$this_row.removeClass('current');
+						} else {
+							$this_row.addClass('current').addClass('last_selected');
+						}
+					}
+
+					jQuery('#rates tr').removeClass('selected_now');
+
 				}
-
-				jQuery(this).closest('tr').addClass('current');
+			}).on( 'blur', 'input', function( e ) {
+				hasFocus = false;
 			});
 
 			jQuery('.wc_tax_rates .export').click(function() {
@@ -252,12 +287,48 @@ function woocommerce_tax_rates_setting() {
 				} else {
 					$tbody.append( code );
 				}
+
+				jQuery( "td.country input" ).autocomplete({
+		            source: availableCountries,
+		            minLength: 3
+		        });
+
+		        jQuery( "td.state input" ).autocomplete({
+		            source: availableStates,
+		            minLength: 3
+		        });
+
 				return false;
 			});
 
 			jQuery('.wc_tax_rates td.postcode, .wc_tax_rates td.city').find('input').change(function() {
 				jQuery(this).attr( 'name', jQuery(this).attr( 'data-name' ) );
 			});
+
+			var availableCountries = [<?php
+				$countries = array();
+				foreach ( $woocommerce->countries->get_allowed_countries() as $value => $label )
+					$countries[] = '{ label: "' . $label . '", value: "' . $value . '" }';
+				echo implode( ', ', $countries );
+			?>];
+
+			var availableStates = [<?php
+				$countries = array();
+				foreach ( $woocommerce->countries->get_allowed_country_states() as $value => $label )
+					foreach ( $label as $code => $state )
+						$countries[] = '{ label: "' . $state . '", value: "' . $code . '" }';
+				echo implode( ', ', $countries );
+			?>];
+
+	        jQuery( "td.country input" ).autocomplete({
+	            source: availableCountries,
+	            minLength: 3
+	        });
+
+	        jQuery( "td.state input" ).autocomplete({
+	            source: availableStates,
+	            minLength: 3
+	        });
 		});
 	</script>
 	<?php
@@ -435,11 +506,13 @@ function woocommerce_tax_rates_setting_save() {
 
 						if ( is_numeric( $postcode_parts[0] ) && is_numeric( $postcode_parts[1] ) && $postcode_parts[1] > $postcode_parts[0] ) {
 							for ( $i = $postcode_parts[0]; $i <= $postcode_parts[1]; $i ++ ) {
-								$postcode_query[] = "( '$i', $tax_rate_id, 'postcode' )";
+								if ( $i )
+									$postcode_query[] = "( '$i', $tax_rate_id, 'postcode' )";
 							}
 						}
 					} else {
-						$postcode_query[] = "( '$postcode', $tax_rate_id, 'postcode' )";
+						if ( $postcode )
+							$postcode_query[] = "( '$postcode', $tax_rate_id, 'postcode' )";
 					}
 
 				$wpdb->query( "INSERT INTO {$wpdb->prefix}woocommerce_tax_rate_locations ( location_code, tax_rate_id, location_type ) VALUES " . implode( ',', $postcode_query ) );
@@ -455,14 +528,16 @@ function woocommerce_tax_rates_setting_save() {
 				$cities = explode( ';', $city );
 				$cities = array_map( 'strtoupper', array_map( 'woocommerce_clean', $cities ) );
 				foreach( $cities as $city ) {
-					$wpdb->insert(
-					$wpdb->prefix . "woocommerce_tax_rate_locations",
-						array(
-							'location_code' => $city,
-							'tax_rate_id'   => $tax_rate_id,
-							'location_type' => 'city',
-						)
-					);
+					if ( $city ) {
+						$wpdb->insert(
+						$wpdb->prefix . "woocommerce_tax_rate_locations",
+							array(
+								'location_code' => $city,
+								'tax_rate_id'   => $tax_rate_id,
+								'location_type' => 'city',
+							)
+						);
+					}
 				}
 			}
 

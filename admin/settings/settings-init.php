@@ -12,9 +12,11 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
-$localisation_setting = ( defined('WPLANG') ) ? array(
+global $woocommerce;
+
+$localisation_setting = defined( 'WPLANG' ) && file_exists( $woocommerce->plugin_path() . '/i18n/languages/informal/woocommerce-' . WPLANG . '.mo' ) ? array(
 	'title' => __( 'Localisation', 'woocommerce' ),
-	'desc' 		=> __( 'Use informal localisation file if it exists', 'woocommerce' ),
+	'desc' 		=> sprintf( __( 'Use informal localisation for %s', 'woocommerce' ), WPLANG ),
 	'id' 		=> 'woocommerce_informal_localisation_type',
 	'type' 		=> 'checkbox',
 	'default'	=> 'no',
@@ -730,7 +732,7 @@ $woocommerce_settings['catalog'] = apply_filters('woocommerce_catalog_settings',
 	array(
 		'title' => __( 'Catalog Images', 'woocommerce' ),
 		'desc' 		=> __( 'This size is usually used in product listings', 'woocommerce' ),
-		'id' 		=> 'woocommerce_catalog_image',
+		'id' 		=> 'shop_catalog_image_size',
 		'css' 		=> '',
 		'type' 		=> 'image_width',
 		'default'	=> array(
@@ -744,7 +746,7 @@ $woocommerce_settings['catalog'] = apply_filters('woocommerce_catalog_settings',
 	array(
 		'title' => __( 'Single Product Image', 'woocommerce' ),
 		'desc' 		=> __( 'This is the size used by the main image on the product page.', 'woocommerce' ),
-		'id' 		=> 'woocommerce_single_image',
+		'id' 		=> 'shop_single_image_size',
 		'css' 		=> '',
 		'type' 		=> 'image_width',
 		'default'	=> array(
@@ -758,7 +760,7 @@ $woocommerce_settings['catalog'] = apply_filters('woocommerce_catalog_settings',
 	array(
 		'title' => __( 'Product Thumbnails', 'woocommerce' ),
 		'desc' 		=> __( 'This size is usually used for the gallery of images on the product page.', 'woocommerce' ),
-		'id' 		=> 'woocommerce_thumbnail_image',
+		'id' 		=> 'shop_thumbnail_image_size',
 		'css' 		=> '',
 		'type' 		=> 'image_width',
 		'default'	=> array(
@@ -784,6 +786,19 @@ $woocommerce_settings['inventory'] = apply_filters('woocommerce_inventory_settin
 		'id' 		=> 'woocommerce_manage_stock',
 		'default'	=> 'yes',
 		'type' 		=> 'checkbox'
+	),
+
+	array(
+		'title' => __( 'Hold Stock (minutes)', 'woocommerce' ),
+		'desc' 		=> __( 'Hold stock (for unpaid orders) for x minutes. When this limit is reached, the pending order will be cancelled. Leave blank to disable.', 'woocommerce' ),
+		'id' 		=> 'woocommerce_hold_stock_minutes',
+		'type' 		=> 'number',
+		'custom_attributes' => array(
+			'min' 	=> 0,
+			'step' 	=> 1
+		),
+		'css' 		=> 'width:50px;',
+		'default'	=> '60'
 	),
 
 	array(
@@ -983,9 +998,21 @@ $woocommerce_settings['tax'] = apply_filters('woocommerce_tax_settings', array(
 		'default'   => 'shipping',
 		'type'      => 'select',
 		'options'   => array(
-			'shipping' => __( 'Shipping address', 'woocommerce' ),
-			'billing'  => __( 'Billing address', 'woocommerce' ),
+			'shipping' => __( 'Customer shipping address', 'woocommerce' ),
+			'billing'  => __( 'Customer billing address', 'woocommerce' ),
 			'base'     => __( 'Shop base address', 'woocommerce' )
+		),
+	),
+
+	array(
+		'title'     => __( 'Default Customer Address:', 'woocommerce' ),
+		'id'        => 'woocommerce_default_customer_address',
+		'desc_tip'	=>  __( 'This option determines the customers default address (before they input their own).', 'woocommerce' ),
+		'default'   => 'base',
+		'type'      => 'select',
+		'options'   => array(
+			''     => __( 'No address', 'woocommerce' ),
+			'base' => __( 'Shop base address', 'woocommerce' ),
 		),
 	),
 

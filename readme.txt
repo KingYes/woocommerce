@@ -2,9 +2,9 @@
 Contributors: woothemes, mikejolley, jameskoster, CoenJacobs
 Tags: ecommerce, e-commerce, commerce, woothemes, wordpress ecommerce, affiliate, store, sales, sell, shop, shopping, cart, checkout, configurable, variable, widgets, reports, download, downloadable, digital, inventory, stock, reports, shipping, tax
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=paypal@woothemes.com&item_name=Donation+for+WooCommerce
-Requires at least: 3.3
-Tested up to: 3.4.2
-Stable tag: 1.6.5.2
+Requires at least: 3.5
+Tested up to: 3.5
+Stable tag: 1.6.6
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -151,7 +151,7 @@ Yes you can! Join in on our [GitHub repository](http://github.com/woothemes/wooc
 == Changelog ==
 
 = 2.0.0 =
-* Feature - Securi audited and secured.
+* Feature - Sucuri audited and secured.
 * Feature - Added sales by category report.
 * Feature - Added sales by coupon report (kudos Max Rice).
 * Feature - Multiple downloadable files per product/variation (kudos Justin Stern).
@@ -179,7 +179,7 @@ Yes you can! Join in on our [GitHub repository](http://github.com/woothemes/wooc
 * Feature - Added the option to sell products individually (only allow 1 in the cart).
 * Feature - New shop page/category archive display settings, and the ability to change display per-category.
 * Feature - Allow shipping tax classes to be defined independent of items. https://github.com/woothemes/woocommerce/issues/1625
-* Feature - Redone order item storage making them easier (and faster) to access for reporting, and querying purchases. Huge performance gains for reports. Order items are no longer serialised - they are stored in there own table with meta. Existing data can be be updated on upgrade.
+* Feature - Redone order item storage making them easier (and faster) to access for reporting, and querying purchases. Huge performance gains for reports. Order items are no longer serialised - they are stored in their own table with meta. Existing data can be be updated on upgrade.
 * Feature - Update weights/dimensions for variations if they differ.
 * Feature - is_order_received_page() courtesy of Lee Willis.
 * Feature - Inline saving of attributes to make creating variable products easier.
@@ -187,13 +187,24 @@ Yes you can! Join in on our [GitHub repository](http://github.com/woothemes/wooc
 * Feature - New free shipping logic - coupon, min-amount, Both or Either.
 * Feature - Taxes can be based on shipping, billing, or shop base.
 * Feature - Filter coupons in admin by type.
+* Feature - Append view cart link on ajax buttons.
+* Feature - Revised the way coupons are stored per order and added new coupon reports on usage.
+* Feature - Updated/new dummy data (including .csv files to be used with [Product CSV Import Suite](http://www.woothemes.com/products/product-csv-import-suite/)).
+* Feature - Option to hold stock for unpaid orders (defaults to 60mins). When this time limit is reached, and the order is not paid for, stock is released and the order is cancelled.
+* Feature - Added set_stock() method to product class.
 
 * Templating - Revised pagination, sorting areas (sorting is now above products, numbered pagination below) and added a result count.
 * Templating - email-order-items.php change get_downloadable_file_url() to get_downloadable_file_urls() to support multiple files.
 * Templating - loop-end and start for product loops, allow changing the UL's used by default to something else.
 * Templating - woocommerce_page_title function for archive titles.
 * Templating - CSS namespacing changes (courtesy of Brian Feister).
+* Templating - My account page broken up into template files (by Brian Richards)
 
+* Tweak - Optimised class loading (autoload). Reduced memory consumption.
+* Tweak - Moved shortcodes and widgets to classes.
+* Tweak - Tweaks to gateways API. Must use WC-WPI for IPN requests (classes will only be init when needed).
+* Tweak - Save hooks for gateways have changed to match shipping methods. Plugins must be updated with the new hook to save options.
+* Tweak - Cron jobs for scheduled sales.
 * Tweak - Improved product data panels.
 * Tweak - Improved installation + upgrade process upon activation.
 * Tweak - Protect logs and uploads with a blank index.html
@@ -230,23 +241,34 @@ Yes you can! Join in on our [GitHub repository](http://github.com/woothemes/wooc
 * Tweak - custom_attributes option added to woocommerce_form_field args. Pass name/value pairs.
 * Tweak - Added html5 type inputs to admin with inline validation.
 * Tweak - Use WP Core jquery-ui-slider
+* Tweak - Further optimisation of icons in admin for HiDPI devices
 
 * Fix - Added more error messages for coupons.
 * Fix - Variation sku updating after selection.
 * Fix - Active plugins display on status page.
 
+* Localization - Makepot added by Geert De Deckere for generating POT files.
+* Localization - Admin/Frontend POT files to reduce memory consumption on the frontend.
 * Localization - French update by Arnaud Cheminand and absoluteweb.
 * Localization - Romanian update by silviu-bucsa and a1ur3l.
 * Localization - Dutch updates by Ramoonus.
+* Localization - Swedish updates by Mikael Jorhult.
 * Localization - Localized shortcode button.
 * Localization - Norwegian translation by frilyd.
 * Localization - Italian update by Giuseppe-Mazzapica.
 * Localization - Korean translate by Woo Jin Koh.
 * Localization - Bulgarian update by Hristo Pandjarov.
 * Localization - Spanish update by bolorino.
+* Localization - Finnish translation by Arhi Paivarinta.
 
 * Removed all deprecated classes and functions except for 1.6.x template files and functions
 * Many other refactors, minor fixes and tweaks!
+
+= 1.6.6 - 13/12/2012 =
+* Fix - Styling issues for the post date selectors in admin.
+* Fix  - Variation attribute saving issue (cache related).
+* Fixed jQuery issues, now using WordPress core jQuery UI library
+* Tweak - Checkout JSON responses to avoid garbage code breaking requests.
 
 = 1.6.5.2 - 12/09/2012 =
 * Tweak - Extra validation for PayPal IPN.
@@ -1150,7 +1172,9 @@ There are many improvements in this major release - see the changelog for full d
 
 The biggest change is that we're redone order item storage making them easier (and faster) to access for reporting and querying purchases; there are huge performance gains for reports.
 
-Order items are no longer serialised data and store in meta - they are stored in there own table with their own meta. Existing data can be be updated upon upgrade (you will be prompted). You should backup before upgrading.
+Order items are no longer serialised data and store in meta - they are stored in there own table with their own meta. Existing data can be updated upon upgrade (you will be prompted). You should backup before upgrading.
+
+On the frontend; if your store is overwriting the core WooCommerce CSS you will need to prefix those overrides with the .woocommerce class as we do in woocommerce.css as of 2.0.
 
 = 1.6.2 =
 1.6 introduced some template changes, for loops in particular. See the changelog for details and ensure theme compatibility before upgrading.

@@ -12,6 +12,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 global $post;
+$rating = esc_attr( get_comment_meta( $GLOBALS['comment']->comment_ID, 'rating', true ) );
 ?>
 <li itemprop="reviews" itemscope itemtype="http://schema.org/Review" <?php comment_class(); ?> id="li-comment-<?php comment_ID() ?>">
 	<div id="comment-<?php comment_ID(); ?>" class="comment_container">
@@ -22,7 +23,7 @@ global $post;
 
 			<?php if ( get_option('woocommerce_enable_review_rating') == 'yes' ) : ?>
 
-				<div itemprop="reviewRating" itemscope itemtype="http://schema.org/Rating" class="star-rating" title="<?php echo esc_attr( get_comment_meta( $GLOBALS['comment']->comment_ID, 'rating', true ) ); ?>">
+				<div itemprop="reviewRating" itemscope itemtype="http://schema.org/Rating" class="star-rating" title="<?php echo sprintf(__( 'Rated %s out of 5', 'woocommerce' ), $rating) ?>">
 					<span style="width:<?php echo intval( get_comment_meta( $GLOBALS['comment']->comment_ID, 'rating', true ) ) * 16; ?>px"><span itemprop="ratingValue"><?php echo intval( get_comment_meta( $GLOBALS['comment']->comment_ID, 'rating', true ) ); ?></span> <?php _e( 'out of 5', 'woocommerce' ); ?></span>
 				</div>
 
@@ -36,7 +37,7 @@ global $post;
 
 						if ( get_option('woocommerce_review_rating_verification_label') == 'yes' )
 							if ( woocommerce_customer_bought_product( $GLOBALS['comment']->comment_author_email, $GLOBALS['comment']->user_id, $post->ID ) )
-								echo '(' . __( 'verified owner', 'woocommerce' ) . ') ';
+								echo '<em class="verified">(' . __( 'verified owner', 'woocommerce' ) . ')</em> ';
 
 					?>&ndash; <time itemprop="datePublished" time datetime="<?php echo get_comment_date('c'); ?>"><?php echo get_comment_date(__( get_option('date_format'), 'woocommerce' )); ?></time>:
 				</p>

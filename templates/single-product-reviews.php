@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 			AND comment_post_ID = %d
 			AND comment_approved = '1'
 			AND meta_value > 0
-		"), $post->ID );
+		", $post->ID ) );
 
 		$rating = $wpdb->get_var( $wpdb->prepare("
 			SELECT SUM(meta_value) FROM $wpdb->commentmeta
@@ -32,7 +32,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 			WHERE meta_key = 'rating'
 			AND comment_post_ID = %d
 			AND comment_approved = '1'
-		"), $post->ID );
+		", $post->ID ) );
 
 		if ( $count > 0 ) {
 
@@ -83,7 +83,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 		$title_reply = __( 'Be the first to review', 'woocommerce' ).' &ldquo;'.$post->post_title.'&rdquo;';
 
-		echo '<p>'.__( 'There are no reviews yet, would you like to <a href="#review_form" class="inline show_review_form">submit yours</a>?', 'woocommerce' ).'</p>';
+		echo '<p class="noreviews">'.__( 'There are no reviews yet, would you like to <a href="#review_form" class="inline show_review_form">submit yours</a>?', 'woocommerce' ).'</p>';
 
 	endif;
 

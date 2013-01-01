@@ -83,32 +83,87 @@ function woocommerce_ms_protect_download_rewite_rules( $rewrite ) {
  * @return void
  */
 function woocommerce_delete_post( $id ) {
-	global $woocommerce;
+	global $woocommerce, $wpdb;
 
 	if ( ! current_user_can( 'delete_posts' ) ) return;
 
-	if ( $id > 0 ) :
+	if ( $id > 0 ) {
 
-		if ( $children_products =& get_children( 'post_parent='.$id.'&post_type=product_variation' ) ) :
+		$post_type = get_post_type( $id );
 
-			if ($children_products) :
+		switch( $post_type ) {
+			case 'product' :
 
-				foreach ($children_products as $child) :
+				if ( $children_products =& get_children( 'post_parent=' . $id . '&post_type=product_variation' ) )
+					if ( $children_products )
+						foreach ( $children_products as $child )
+							wp_delete_post( $child->ID, true );
 
-					wp_delete_post( $child->ID, true );
+				$woocommerce->clear_product_transients();
 
-				endforeach;
+			break;
+			case 'product_variation' :
 
-			endif;
+				$woocommerce->clear_product_transients();
 
-		endif;
-
-	endif;
-
-	$woocommerce->clear_product_transients();
-	delete_transient( 'woocommerce_processing_order_count' );
+			break;
+		}
+	}
 }
 
+/**
+ * woocommerce_trash_post function.
+ *
+ * @access public
+ * @param mixed $id
+ * @return void
+ */
+function woocommerce_trash_post( $id ) {
+	if ( $id > 0 ) {
+
+		$post_type = get_post_type( $id );
+
+		if ( 'shop_order' == $post_type ) {
+
+			// Delete count - meta doesn't work on trashed posts
+			$user_id = get_post_meta( $id, '_customer_user', true );
+
+			if ( $user_id > 0 ) {
+				delete_user_meta( $user_id, '_order_count' );
+			}
+
+			delete_transient( 'woocommerce_processing_order_count' );
+		}
+
+	}
+}
+
+/**
+ * woocommerce_untrash_post function.
+ *
+ * @access public
+ * @param mixed $id
+ * @return void
+ */
+function woocommerce_untrash_post( $id ) {
+	if ( $id > 0 ) {
+
+		$post_type = get_post_type( $id );
+
+		if ( 'shop_order' == $post_type ) {
+
+			// Delete count - meta doesn't work on trashed posts
+			$user_id = get_post_meta( $id, '_customer_user', true );
+
+			if ( $user_id > 0 ) {
+				delete_user_meta( $user_id, '_order_count' );
+			}
+
+			delete_transient( 'woocommerce_processing_order_count' );
+		}
+
+	}
+}
 
 /**
  * Preview Emails in WP admin
@@ -199,20 +254,6 @@ function woocommerce_prevent_admin_access() {
 	}
 }
 
-
-/**
- * Fix 'insert into post' buttons for images
- *
- * @access public
- * @param mixed $vars
- * @return array
- */
-function woocommerce_allow_img_insertion( $vars ) {
-    $vars['send'] = true; // 'send' as in "Send to Editor"
-    return($vars);
-}
-
-
 /**
  * Filter the directory for uploads.
  *
@@ -222,16 +263,15 @@ function woocommerce_allow_img_insertion( $vars ) {
  */
 function woocommerce_downloads_upload_dir( $pathdata ) {
 
-	if (isset($_POST['type']) && $_POST['type'] == 'downloadable_product') :
-
+	// Change upload dir
+	if ( isset( $_POST['type'] ) && $_POST['type'] == 'downloadable_product' ) {
 		// Uploading a downloadable file
 		$subdir = '/woocommerce_uploads'.$pathdata['subdir'];
 	 	$pathdata['path'] = str_replace($pathdata['subdir'], $subdir, $pathdata['path']);
 	 	$pathdata['url'] = str_replace($pathdata['subdir'], $subdir, $pathdata['url']);
 		$pathdata['subdir'] = str_replace($pathdata['subdir'], $subdir, $pathdata['subdir']);
 		return $pathdata;
-
-	endif;
+	}
 
 	return $pathdata;
 }

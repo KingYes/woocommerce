@@ -37,6 +37,39 @@ function woocommerce_sanitize_taxonomy_name( $taxonomy ) {
 }
 
 /**
+ * woocommerce_get_attachment_image_attributes function.
+ *
+ * @access public
+ * @param mixed $attr
+ * @return void
+ */
+function woocommerce_get_attachment_image_attributes( $attr ) {
+	if ( strstr( $attr['src'], 'woocommerce_uploads/' ) )
+		$attr['src'] = woocommerce_placeholder_img_src();
+
+	return $attr;
+}
+
+add_filter( 'wp_get_attachment_image_attributes', 'woocommerce_get_attachment_image_attributes' );
+
+
+function woocommerce_prepare_attachment_for_js( $response ) {
+
+	if ( isset( $response['url'] ) && strstr( $response['url'], 'woocommerce_uploads/' ) ) {
+		$response['full']['url'] = woocommerce_placeholder_img_src();
+		if ( $response['sizes'] ) {
+			foreach( $response['sizes'] as $size => $value ) {
+				$response['sizes'][ $size ]['url'] = woocommerce_placeholder_img_src();
+			}
+		}
+	}
+
+	return $response;
+}
+
+add_filter( 'wp_prepare_attachment_for_js', 'woocommerce_prepare_attachment_for_js' );
+
+/**
  * woocommerce_get_dimension function.
  *
  * Normalise dimensions, unify to cm then convert to wanted unit value
@@ -169,6 +202,24 @@ function woocommerce_placeholder_img( $size = 'shop_thumbnail' ) {
 
 
 /**
+ * woocommerce_lostpassword_url function.
+ *
+ * @access public
+ * @param mixed $url
+ * @return void
+ */
+function woocommerce_lostpassword_url( $url ) {
+    $id = woocommerce_get_page_id( 'lost_password' );
+    if ( $id != -1 )
+    	 $url = get_permalink( $id );
+
+    return $url;
+}
+
+add_filter( 'lostpassword_url',  'woocommerce_lostpassword_url' );
+
+
+/**
  * Send HTML emails from WooCommerce
  *
  * @access public
@@ -192,7 +243,7 @@ if ( ! function_exists( 'woocommerce_get_page_id' ) ) {
 	/**
 	 * WooCommerce page IDs
 	 *
-	 * retrieve page ids - used for myaccount, edit_address, change_password, shop, cart, checkout, pay, view_order, thanks, terms, order_tracking
+	 * retrieve page ids - used for myaccount, edit_address, change_password, shop, cart, checkout, pay, view_order, thanks, terms
 	 *
 	 * returns -1 if no page is found
 	 *
@@ -355,7 +406,7 @@ if ( ! function_exists( 'is_account_page' ) ) {
 	 * @return bool
 	 */
 	function is_account_page() {
-		return ( is_page( woocommerce_get_page_id( 'myaccount' ) ) || is_page( woocommerce_get_page_id( 'edit_address' ) ) || is_page( woocommerce_get_page_id( 'view_order' ) ) || is_page( woocommerce_get_page_id( 'change_password' ) ) ) ? true : false;
+		return is_page( woocommerce_get_page_id( 'myaccount' ) ) || is_page( woocommerce_get_page_id( 'edit_address' ) ) || is_page( woocommerce_get_page_id( 'view_order' ) ) || is_page( woocommerce_get_page_id( 'change_password' ) ) || is_page( woocommerce_get_page_id( 'lost_password' ) ) || apply_filters( 'woocommerce_is_account_page', false ) ? true : false;
 	}
 }
 if ( ! function_exists( 'is_order_received_page' ) ) {
@@ -480,7 +531,7 @@ function woocommerce_locate_template( $template_name, $template_path = '', $defa
 	// Look within passed path within the theme - this is priority
 	$template = locate_template(
 		array(
-			$template_path . $template_name,
+			trailingslashit( $template_path ) . $template_name,
 			$template_name
 		)
 	);
@@ -620,8 +671,11 @@ function woocommerce_trim_zeros( $price ) {
  * @param mixed $number
  * @return string
  */
-function woocommerce_format_decimal( $number ) {
-	$number = number_format( (float) $number, get_option( 'woocommerce_price_num_decimals' ), '.', '' );
+function woocommerce_format_decimal( $number, $dp = '' ) {
+	if ( $dp == '' )
+		$dp = intval( get_option( 'woocommerce_price_num_decimals' ) );
+
+	$number = number_format( (float) $number, (int) $dp, '.', '' );
 
 	if ( strstr( $number, '.' ) )
 		$number = rtrim( rtrim( $number, '0' ), '.' );
@@ -638,7 +692,7 @@ function woocommerce_format_decimal( $number ) {
  * @return float
  */
 function woocommerce_format_total( $number ) {
-	return number_format( (float) $number, get_option( 'woocommerce_price_num_decimals' ), '.', '' );
+	return number_format( (float) $number, (int) get_option( 'woocommerce_price_num_decimals' ), '.', '' );
 }
 
 
@@ -1279,7 +1333,7 @@ function woocommerce_product_dropdown_categories( $show_counts = 1, $hierarchal 
 	$r['pad_counts'] 	= 1;
 	$r['hierarchal'] 	= $hierarchal;
 	$r['hide_empty'] 	= 1;
-	$r['show_count'] 	= 1;
+	$r['show_count'] 	= $show_counts;
 	$r['selected'] 		= ( isset( $wp_query->query['product_cat'] ) ) ? $wp_query->query['product_cat'] : '';
 
 	$terms = get_terms( 'product_cat', $r );
@@ -2008,24 +2062,34 @@ function _woocommerce_term_recount( $terms, $taxonomy, $callback = true, $terms_
  */
 function woocommerce_recount_after_stock_change( $product_id ) {
 
-	$product_cats = $product_tags = array();
-
 	$product_terms = get_the_terms( $product_id, 'product_cat' );
-	foreach ( $product_terms as $term )
-		$product_cats[ $term->term_id ] = $term->parent;
+
+	if ( $product_terms ) {
+		foreach ( $product_terms as $term )
+			$product_cats[ $term->term_id ] = $term->parent;
+
+		_woocommerce_term_recount( $product_cats, get_taxonomy( 'product_cat' ), false, false );
+
+	}
 
 	$product_terms = get_the_terms( $product_id, 'product_tag' );
-	foreach ( $product_terms as $term )
-		$product_tags[ $term->term_id ] = $term->parent;
 
-	_woocommerce_term_recount( $product_cats, get_taxonomy( 'product_cat' ), false, false );
-	_woocommerce_term_recount( $product_tags, get_taxonomy( 'product_tag' ), false, false );
+	if ( $product_terms ) {
+		foreach ( $product_terms as $term )
+			$product_tags[ $term->term_id ] = $term->parent;
+
+		_woocommerce_term_recount( $product_tags, get_taxonomy( 'product_tag' ), false, false );
+
+	}
+
 }
 
 add_action( 'woocommerce_product_set_stock_status', 'woocommerce_recount_after_stock_change' );
 
 /**
  * woocommerce_change_term_counts function.
+ * Overrides the original term count for product categories and tags with the product count
+ * that takes catalog visibility into account.
  *
  * @access public
  * @param mixed $terms
@@ -2039,6 +2103,9 @@ function woocommerce_change_term_counts( $terms, $taxonomies, $args ) {
 		return $terms;
 
 	foreach ( $terms as &$term ) {
+		// If the original term count is zero, there's no way the product count could be higher.
+		if ( empty( $term->count ) ) continue;
+
 		$count = get_woocommerce_term_meta( $term->term_id, 'product_count_' . $taxonomies[0] , true );
 
 		if ( $count != '' )
@@ -2050,3 +2117,205 @@ function woocommerce_change_term_counts( $terms, $taxonomies, $args ) {
 
 if ( ! is_admin() && ! is_ajax() )
 	add_filter( 'get_terms', 'woocommerce_change_term_counts', 10, 3 );
+
+/**
+ * Function which handles the start and end of scheduled sales via cron.
+ *
+ * @access public
+ * @return void
+ */
+function woocommerce_scheduled_sales() {
+	global $woocommerce, $wpdb;
+
+	// Sales which are due to start
+	$product_ids = $wpdb->get_col( $wpdb->prepare( "
+		SELECT postmeta.post_id FROM {$wpdb->postmeta} as postmeta
+		LEFT JOIN {$wpdb->postmeta} as postmeta_2 ON postmeta.post_id = postmeta_2.post_id
+		LEFT JOIN {$wpdb->postmeta} as postmeta_3 ON postmeta.post_id = postmeta_3.post_id
+		WHERE postmeta.meta_key = '_sale_price_dates_from'
+		AND postmeta_2.meta_key = '_price'
+		AND postmeta_3.meta_key = '_sale_price'
+		AND postmeta.meta_value > 0
+		AND postmeta.meta_value < %s
+		AND postmeta_2.meta_value != postmeta_3.meta_value
+	", current_time( 'timestamp' ) ) );
+
+	if ( $product_ids ) {
+		foreach ( $product_ids as $product_id ) {
+			$sale_price = get_post_meta( $product_id, '_sale_price', true );
+
+			if ( $sale_price ) {
+				update_post_meta( $product_id, '_price', $sale_price );
+			} else {
+				// No sale price!
+				update_post_meta( $product_id, '_sale_price_dates_from', '' );
+				update_post_meta( $product_id, '_sale_price_dates_to', '' );
+			}
+
+			$woocommerce->clear_product_transients( $product_id );
+
+			$parent = wp_get_post_parent_id( $product_id );
+
+			// Sync parent
+			if ( $parent ) {
+				// We can force varaible product price to sync up by removing their min price meta
+				delete_post_meta( $parent, 'min_variation_price' );
+
+				// Grouped products need syncing via a function
+				$this_product = get_product( $product_id );
+				if ( $this_product->is_type( 'simple' ) )
+					$this_product->grouped_product_sync();
+
+				$woocommerce->clear_product_transients( $parent );
+			}
+		}
+	}
+
+	// Sales which are due to end
+	$product_ids = $wpdb->get_col( $wpdb->prepare( "
+		SELECT postmeta.post_id FROM {$wpdb->postmeta} as postmeta
+		LEFT JOIN {$wpdb->postmeta} as postmeta_2 ON postmeta.post_id = postmeta_2.post_id
+		LEFT JOIN {$wpdb->postmeta} as postmeta_3 ON postmeta.post_id = postmeta_3.post_id
+		WHERE postmeta.meta_key = '_sale_price_dates_to'
+		AND postmeta_2.meta_key = '_price'
+		AND postmeta_3.meta_key = '_regular_price'
+		AND postmeta.meta_value > 0
+		AND postmeta.meta_value < %s
+		AND postmeta_2.meta_value != postmeta_3.meta_value
+	", current_time( 'timestamp' ) ) );
+
+	if ( $product_ids ) {
+		foreach ( $product_ids as $product_id ) {
+			$regular_price = get_post_meta( $product_id, '_regular_price', true );
+
+			update_post_meta( $product_id, '_price', $regular_price );
+			update_post_meta( $product_id, '_sale_price', '' );
+			update_post_meta( $product_id, '_sale_price_dates_from', '' );
+			update_post_meta( $product_id, '_sale_price_dates_to', '' );
+
+			$woocommerce->clear_product_transients( $product_id );
+
+			$parent = wp_get_post_parent_id( $product_id );
+
+			// Sync parent
+			if ( $parent ) {
+				// We can force varaible product price to sync up by removing their min price meta
+				delete_post_meta( $parent, 'min_variation_price' );
+
+				// Grouped products need syncing via a function
+				$this_product = get_product( $product_id );
+				if ( $this_product->is_type( 'simple' ) )
+					$this_product->grouped_product_sync();
+
+				$woocommerce->clear_product_transients( $parent );
+			}
+		}
+	}
+}
+
+add_action( 'woocommerce_scheduled_sales', 'woocommerce_scheduled_sales' );
+
+
+/**
+ * woocommerce_cancel_unpaid_orders function.
+ *
+ * @access public
+ * @return void
+ */
+function woocommerce_cancel_unpaid_orders() {
+	global $wpdb;
+
+	$held_duration = get_option( 'woocommerce_hold_stock_minutes' );
+
+	if ( $held_duration == '' )
+		return;
+
+	$date = date( "Y-m-d H:i:s", strtotime( '+' . absint( $held_duration ) . ' MINUTES', current_time( 'timestamp' ) ) );
+
+	$unpaid_orders = $wpdb->get_col( $wpdb->prepare( "
+		SELECT posts.ID
+		FROM {$wpdb->posts} AS posts
+		LEFT JOIN {$wpdb->term_relationships} AS rel ON posts.ID=rel.object_ID
+		LEFT JOIN {$wpdb->term_taxonomy} AS tax USING( term_taxonomy_id )
+		LEFT JOIN {$wpdb->terms} AS term USING( term_id )
+
+		WHERE 	posts.post_type   = 'shop_order'
+		AND 	posts.post_status = 'publish'
+		AND 	tax.taxonomy      = 'shop_order_status'
+		AND		term.slug	      IN ('pending')
+		AND 	posts.post_date   < %s
+	", $date ) );
+
+	if ( $unpaid_orders ) {
+		foreach ( $unpaid_orders as $unpaid_order ) {
+			$order = new WC_Order( $unpaid_order );
+			$order->update_status( 'cancelled', __( 'Unpaid order cancelled - time limit reached.', 'woocommerce' ) );
+		}
+	}
+
+	wp_clear_scheduled_hook( 'woocommerce_cancel_unpaid_orders' );
+	wp_schedule_single_event( time() + ( absint( $held_duration ) * 60 ), 'woocommerce_cancel_unpaid_orders' );
+}
+
+add_action( 'woocommerce_cancel_unpaid_orders', 'woocommerce_cancel_unpaid_orders' );
+
+/**
+ * Process the login.
+ *
+ * @access public
+ * @package 	WooCommerce/Widgets
+ * @return void
+ */
+function woocommerce_sidebar_login_process() {
+
+	if (isset($_POST['woocommerce_login'])) {
+
+		global $login_errors;
+
+		// Get redirect URL
+		$redirect_to = esc_url( apply_filters( 'woocommerce_login_widget_redirect', get_permalink( woocommerce_get_page_id( 'myaccount' ) ) ) );
+
+		// Check for Secure Cookie
+		$secure_cookie = '';
+
+		// If the user wants ssl but the session is not ssl, force a secure cookie.
+		if ( !empty($_POST['log']) && !force_ssl_admin() ) {
+			$user_name = sanitize_user($_POST['log']);
+			if ( $user = get_user_by('login', $user_name) ) {
+				if ( get_user_option('use_ssl', $user->ID) ) {
+					$secure_cookie = true;
+					force_ssl_admin(true);
+				}
+			}
+		}
+
+		if ( force_ssl_admin() ) $secure_cookie = true;
+		if ( $secure_cookie == '' && force_ssl_login() ) $secure_cookie = false;
+
+		// Login
+		$user = wp_signon( '', $secure_cookie );
+
+		// Redirect filter
+		if ( $secure_cookie && strstr($redirect_to, 'wp-admin') ) $redirect_to = str_replace('http:', 'https:', $redirect_to);
+
+		// Check the username
+		if ( !$_POST['log'] ) :
+			$user = new WP_Error();
+			$user->add('empty_username', '<strong>' . __( 'ERROR', 'woocommerce' ) . '</strong>: ' . __( 'Please enter a username.', 'woocommerce' ));
+		elseif ( !$_POST['pwd'] ) :
+			$user = new WP_Error();
+			$user->add('empty_username', '<strong>' . __( 'ERROR', 'woocommerce' ) . '</strong>: ' . __( 'Please enter your password.', 'woocommerce' ));
+		endif;
+
+		// Redirect if successful
+		if ( !is_wp_error($user) ) :
+			wp_safe_redirect( $redirect_to );
+			exit;
+		endif;
+
+		$login_errors = $user;
+
+	}
+}
+
+add_action( 'init', 'woocommerce_sidebar_login_process', 0 );

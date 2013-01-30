@@ -33,6 +33,7 @@ class WC_Gateway_Mijireh extends WC_Payment_Gateway {
 		$this->has_fields = false;
 
 		// Load the settings.
+		$this->init_form_fields();
 		$this->init_settings();
 
 		// Define user set variables
@@ -163,13 +164,15 @@ class WC_Gateway_Mijireh extends WC_Payment_Gateway {
 				'title' => __( 'Access Key', 'woocommerce' ),
 				'type' => 'text',
 				'description' => __( 'The Mijireh access key for your store.', 'woocommerce' ),
-				'default' => ''
+				'default' => '',
+				'desc_tip'      => true,
 				),
 			'title' => array(
 				'title' => __( 'Title', 'woocommerce' ),
 				'type' => 'text',
 				'description' => __( 'This controls the title which the user sees during checkout.', 'woocommerce' ),
-				'default' => __( 'Credit Card', 'woocommerce' )
+				'default' => __( 'Credit Card', 'woocommerce' ),
+				'desc_tip'      => true,
 				),
 			'description' => array(
 				'title' => __( 'Description', 'woocommerce' ),

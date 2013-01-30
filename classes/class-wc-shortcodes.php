@@ -235,7 +235,7 @@ class WC_Shortcodes {
 
 		wp_reset_postdata();
 
-		return ob_get_clean();
+		return '<div class="woocommerce">' . ob_get_clean() . '</div>';
 	}
 
 
@@ -303,7 +303,7 @@ class WC_Shortcodes {
 
 		woocommerce_reset_loop();
 
-		return ob_get_clean();
+		return '<div class="woocommerce">' . ob_get_clean() . '</div>';
 	}
 
 
@@ -316,7 +316,7 @@ class WC_Shortcodes {
 	 */
 	public function recent_products( $atts ) {
 
-		global $woocommerce_loop;
+		global $woocommerce_loop, $woocommerce;
 
 		extract(shortcode_atts(array(
 			'per_page' 	=> '12',
@@ -325,6 +325,10 @@ class WC_Shortcodes {
 			'order' => 'desc'
 		), $atts));
 
+		$meta_query = array();
+		$meta_query[] = $woocommerce->query->visibility_meta_query();
+		$meta_query[] = $woocommerce->query->stock_status_meta_query();
+
 		$args = array(
 			'post_type'	=> 'product',
 			'post_status' => 'publish',
@@ -332,13 +336,7 @@ class WC_Shortcodes {
 			'posts_per_page' => $per_page,
 			'orderby' => $orderby,
 			'order' => $order,
-			'meta_query' => array(
-				array(
-					'key' => '_visibility',
-					'value' => array('catalog', 'visible'),
-					'compare' => 'IN'
-				)
-			)
+			'meta_query' => $meta_query
 		);
 
 		ob_start();
@@ -363,7 +361,7 @@ class WC_Shortcodes {
 
 		wp_reset_postdata();
 
-		return ob_get_clean();
+		return '<div class="woocommerce">' . ob_get_clean() . '</div>';
 	}
 
 
@@ -439,7 +437,7 @@ class WC_Shortcodes {
 
 		wp_reset_postdata();
 
-		return ob_get_clean();
+		return '<div class="woocommerce">' . ob_get_clean() . '</div>';
 	}
 
 
@@ -499,7 +497,7 @@ class WC_Shortcodes {
 
 		wp_reset_postdata();
 
-		return ob_get_clean();
+		return '<div class="woocommerce">' . ob_get_clean() . '</div>';
 	}
 
 
@@ -626,39 +624,7 @@ class WC_Shortcodes {
 	        ), $atts ) );
 
 		// Get products on sale
-		if ( false === ( $product_ids_on_sale = get_transient( 'wc_products_onsale' ) ) ) {
-
-			$meta_query = array();
-
-		    $meta_query[] = array(
-		    	'key' => '_sale_price',
-		        'value' 	=> 0,
-				'compare' 	=> '>',
-				'type'		=> 'NUMERIC'
-		    );
-
-			$on_sale = get_posts(array(
-				'post_type' 		=> array('product', 'product_variation'),
-				'posts_per_page' 	=> -1,
-				'post_status' 		=> 'publish',
-				'meta_query' 		=> $meta_query,
-				'fields' 			=> 'id=>parent'
-			));
-
-			$product_ids 	= array_keys( $on_sale );
-			$parent_ids		= array_values( $on_sale );
-
-			// Check for scheduled sales which have not started
-			foreach ( $product_ids as $key => $id )
-				if ( get_post_meta( $id, '_sale_price_dates_from', true ) > current_time('timestamp') )
-					unset( $product_ids[ $key ] );
-
-			$product_ids_on_sale = array_unique( array_merge( $product_ids, $parent_ids ) );
-
-			set_transient( 'wc_products_onsale', $product_ids_on_sale );
-		}
-
-		$product_ids_on_sale[] = 0;
+		$product_ids_on_sale = woocommerce_get_product_ids_on_sale();
 
 		$meta_query = array();
 		$meta_query[] = $woocommerce->query->visibility_meta_query();
@@ -699,7 +665,7 @@ class WC_Shortcodes {
 
 		wp_reset_postdata();
 
-		return ob_get_clean();
+		return '<div class="woocommerce">' . ob_get_clean() . '</div>';
 	}
 
 	/**
@@ -755,7 +721,7 @@ class WC_Shortcodes {
 
 		wp_reset_postdata();
 
-		return ob_get_clean();
+		return '<div class="woocommerce">' . ob_get_clean() . '</div>';
 	}
 
 	/**
@@ -817,7 +783,7 @@ class WC_Shortcodes {
 
 		wp_reset_postdata();
 
-		return ob_get_clean();
+		return '<div class="woocommerce">' . ob_get_clean() . '</div>';
 	}
 
 	/**
@@ -880,7 +846,7 @@ class WC_Shortcodes {
 
 		wp_reset_postdata();
 
-		return ob_get_clean();
+		return '<div class="woocommerce">' . ob_get_clean() . '</div>';
 	}
 
 
@@ -932,7 +898,7 @@ class WC_Shortcodes {
 
 		wp_reset_postdata();
 
-		return ob_get_clean();
+		return '<div class="woocommerce">' . ob_get_clean() . '</div>';
 	}
 
 

@@ -407,6 +407,7 @@ function woocommerce_sales_overview() {
 				<h3><span><?php _e( 'This month\'s sales', 'woocommerce' ); ?></span></h3>
 				<div class="inside chart">
 					<div id="placeholder" style="width:100%; overflow:hidden; height:568px; position:relative;"></div>
+					<div id="cart_legend"></div>
 				</div>
 			</div>
 		</div>
@@ -494,6 +495,10 @@ function woocommerce_sales_overview() {
 			var placeholder = jQuery("#placeholder");
 
 			var plot = jQuery.plot(placeholder, [ { label: "<?php echo esc_js( __( 'Number of sales', 'woocommerce' ) ) ?>", data: d }, { label: "<?php echo esc_js( __( 'Sales amount', 'woocommerce' ) ) ?>", data: d2, yaxis: 2 } ], {
+				legend: {
+					container: jQuery('#cart_legend'),
+					noColumns: 2
+				},
 				series: {
 					lines: { show: true, fill: true },
 					points: { show: true }
@@ -663,6 +668,7 @@ function woocommerce_daily_sales() {
 				<h3><span><?php _e( 'Sales in range', 'woocommerce' ); ?></span></h3>
 				<div class="inside chart">
 					<div id="placeholder" style="width:100%; overflow:hidden; height:568px; position:relative;"></div>
+					<div id="cart_legend"></div>
 				</div>
 			</div>
 		</div>
@@ -694,6 +700,10 @@ function woocommerce_daily_sales() {
 			var placeholder = jQuery("#placeholder");
 
 			var plot = jQuery.plot(placeholder, [ { label: "<?php echo esc_js( __( 'Number of sales', 'woocommerce' ) ) ?>", data: d }, { label: "<?php echo esc_js( __( 'Sales amount', 'woocommerce' ) ) ?>", data: d2, yaxis: 2 } ], {
+				legend: {
+					container: jQuery('#cart_legend'),
+					noColumns: 2
+				},
 				series: {
 					lines: { show: true, fill: true },
 					points: { show: true }
@@ -842,6 +852,7 @@ function woocommerce_monthly_sales() {
 				<h3><span><?php _e( 'Monthly sales for year', 'woocommerce' ); ?></span></h3>
 				<div class="inside chart">
 					<div id="placeholder" style="width:100%; overflow:hidden; height:568px; position:relative;"></div>
+					<div id="cart_legend"></div>
 				</div>
 			</div>
 		</div>
@@ -870,6 +881,10 @@ function woocommerce_monthly_sales() {
 			var placeholder = jQuery("#placeholder");
 
 			var plot = jQuery.plot(placeholder, [ { label: "<?php echo esc_js( __( 'Number of sales', 'woocommerce' ) ) ?>", data: d }, { label: "<?php echo esc_js( __( 'Sales amount', 'woocommerce' ) ) ?>", data: d2, yaxis: 2 } ], {
+				legend: {
+					container: jQuery('#cart_legend'),
+					noColumns: 2
+				},
 				series: {
 					lines: { show: true, fill: true },
 					points: { show: true, align: "left" }
@@ -1643,6 +1658,7 @@ function woocommerce_coupon_discounts() {
 					<h3><span><?php _e( 'Monthly discounts by coupon', 'woocommerce' ); ?></span></h3>
 					<div class="inside chart">
 						<div id="placeholder" style="width:100%; overflow:hidden; height:568px; position:relative;"></div>
+						<div id="cart_legend"></div>
 					</div>
 				</div>
 			</div>
@@ -1671,6 +1687,10 @@ function woocommerce_coupon_discounts() {
 					echo implode( ',', $labels );
 					?>
 				], {
+					legend: {
+						container: jQuery('#cart_legend'),
+						noColumns: 2
+					},
 					series: {
 						lines: { show: true, fill: true },
 						points: { show: true, align: "left" }
@@ -1826,6 +1846,7 @@ function woocommerce_customer_overview() {
 				<h3><span><?php _e( 'Signups per day', 'woocommerce' ); ?></span></h3>
 				<div class="inside chart">
 					<div id="placeholder" style="width:100%; overflow:hidden; height:568px; position:relative;"></div>
+					<div id="cart_legend"></div>
 				</div>
 			</div>
 		</div>
@@ -1877,6 +1898,10 @@ function woocommerce_customer_overview() {
 			var placeholder = jQuery("#placeholder");
 
 			var plot = jQuery.plot(placeholder, [ { data: d } ], {
+				legend: {
+					container: jQuery('#cart_legend'),
+					noColumns: 2
+				},
 				series: {
 					bars: {
 						barWidth: 60 * 60 * 24 * 1000,
@@ -1932,9 +1957,6 @@ function woocommerce_stock_overview() {
 	$nostockamount = get_option('woocommerce_notify_no_stock_amount');
 	if (!is_numeric($nostockamount)) $nostockamount = 0;
 
-	$outofstock = array();
-	$lowinstock = array();
-
 	// Get low in stock simple/downloadable/virtual products. Grouped don't have stock. Variations need a separate query.
 	$args = array(
 		'post_type'			=> 'product',
@@ -1961,6 +1983,7 @@ function woocommerce_stock_overview() {
 			)
 		)
 	);
+
 	$low_stock_products = (array) get_posts($args);
 
 	// Get low stock product variations
@@ -1982,6 +2005,7 @@ function woocommerce_stock_overview() {
 			)
 		)
 	);
+
 	$low_stock_variations = (array) get_posts($args);
 
 	// Finally, get low stock variable products (where stock is set for the parent)
@@ -2011,10 +2035,11 @@ function woocommerce_stock_overview() {
 			)
 		)
 	);
+
 	$low_stock_variable_products = (array) get_posts($args);
 
 	// Merge results
-	$low_in_stock = array_merge($low_stock_products, $low_stock_variations, $low_stock_variable_products);
+	$low_in_stock = apply_filters( 'woocommerce_reports_stock_overview_products', array_merge( $low_stock_products, $low_stock_variations, $low_stock_variable_products ) );
 
 	?>
 	<div id="poststuff" class="woocommerce-reports-wrap halved">
@@ -2395,8 +2420,7 @@ function woocommerce_category_sales() {
 	$first_year = $wpdb->get_var( "SELECT post_date FROM $wpdb->posts WHERE post_date != 0 ORDER BY post_date ASC LIMIT 1;" );
 	$first_year = ( $first_year ) ? date( 'Y', strtotime( $first_year ) ) : date( 'Y' );
 
-	$current_year 	= isset( $_POST['show_year'] ) 	? $_POST['show_year'] 	: date( 'Y', current_time( 'timestamp' ) );
-	$start_date 	= strtotime( $current_year . '0101' );
+	$current_year 	= isset( $_POST['show_year'] ) ? $_POST['show_year'] : date( 'Y', current_time( 'timestamp' ) );
 
 	$categories = get_terms( 'product_cat', array( 'orderby' => 'name' ) );
 	?>
@@ -2433,8 +2457,6 @@ function woocommerce_category_sales() {
 	$item_sales = array();
 
 	// Get order items
-	$start_date = date( 'Ym', strtotime( date( 'Ym', strtotime( '-1 year', $start_date ) ) . '01' ) );
-
 	$order_items = apply_filters( 'woocommerce_reports_category_sales_order_items', $wpdb->get_results( $wpdb->prepare( "
 		SELECT order_item_meta_2.meta_value as product_id, posts.post_date, SUM( order_item_meta.meta_value ) as line_total
 		FROM {$wpdb->prefix}woocommerce_order_items as order_items
@@ -2450,13 +2472,13 @@ function woocommerce_category_sales() {
 		AND 	posts.post_status 	= 'publish'
 		AND 	tax.taxonomy		= 'shop_order_status'
 		AND		term.slug			IN ('" . implode( "','", apply_filters( 'woocommerce_reports_order_statuses', array( 'completed', 'processing', 'on-hold' ) ) ) . "')
-		AND		date_format(posts.post_date,'%%Y%%m') >= %s
+		AND		date_format(posts.post_date,'%%Y') = %s
 		AND 	order_items.order_item_type = 'line_item'
 		AND 	order_item_meta.meta_key = '_line_total'
 		AND 	order_item_meta_2.meta_key = '_product_id'
-		GROUP BY order_items.order_id
+		GROUP BY order_items.order_item_id
 		ORDER BY posts.post_date ASC
-	", $start_date ) ) );
+	", $current_year ) ) );
 
 	if ( $order_items ) {
 		foreach ( $order_items as $order_item ) {
@@ -2633,6 +2655,7 @@ function woocommerce_category_sales() {
 					<h3><span><?php _e( 'Monthly sales by category', 'woocommerce' ); ?></span></h3>
 					<div class="inside chart">
 						<div id="placeholder" style="width:100%; overflow:hidden; height:568px; position:relative;"></div>
+						<div id="cart_legend"></div>
 					</div>
 				</div>
 			</div>
@@ -2661,6 +2684,10 @@ function woocommerce_category_sales() {
 					echo implode( ',', $labels );
 					?>
 				], {
+					legend: {
+						container: jQuery('#cart_legend'),
+						noColumns: 2
+					},
 					series: {
 						lines: { show: true, fill: true },
 						points: { show: true, align: "left" }
@@ -2677,7 +2704,7 @@ function woocommerce_category_sales() {
 					},
 					xaxis: {
 						mode: "time",
-						timeformat: "%b %y",
+						timeformat: "%b",
 						monthNames: <?php echo json_encode( array_values( $wp_locale->month_abbrev ) ) ?>,
 						tickLength: 1,
 						minTickSize: [1, "month"]

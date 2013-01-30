@@ -135,7 +135,7 @@ class WC_Cart {
 
 					$_product = get_product( $values['variation_id'] ? $values['variation_id'] : $values['product_id'] );
 
-					if ( $_product->exists() && $values['quantity'] > 0 ) {
+					if ( !empty( $_product ) && $_product->exists() && $values['quantity'] > 0 ) {
 
 						// Put session data into array. Run through filter so other plugins can load their own session data
 						$this->cart_contents[ $key ] = apply_filters( 'woocommerce_get_cart_item_from_session', array(
@@ -795,6 +795,9 @@ class WC_Cart {
 
 			$product_data = get_product( $variation_id ? $variation_id : $product_id );
 
+			if ( ! $product_data )
+				return false;
+
 			// Force quantity to 1 if sold individually
 			if ( $product_data->is_sold_individually() )
 				$quantity = 1;
@@ -951,6 +954,7 @@ class WC_Cart {
 								$this_item_is_discounted = false;
 
 								$product_cats = wp_get_post_terms( $values['product_id'], 'product_cat', array("fields" => "ids") );
+								$product_ids_on_sale = woocommerce_get_product_ids_on_sale();
 
 								// Specific products get the discount
 								if ( sizeof( $coupon->product_ids ) > 0 ) {
@@ -979,6 +983,11 @@ class WC_Cart {
 								// Specific categories excluded from the discount
 								if ( sizeof( $coupon->exclude_product_categories ) > 0 )
 									if ( sizeof( array_intersect( $product_cats, $coupon->exclude_product_categories ) ) > 0 )
+										$this_item_is_discounted = false;
+
+								// Sale Items excluded from discount
+								if ( $coupon->exclude_sale_items == 'yes' )
+									if ( in_array( $values['product_id'], $product_ids_on_sale, true ) || in_array( $values['variation_id'], $product_ids_on_sale, true ) || in_array( $values['data']->get_parent(), $product_ids_on_sale, true ) )
 										$this_item_is_discounted = false;
 
 								// Apply filter
@@ -1111,6 +1120,7 @@ class WC_Cart {
 					if ( ! $coupon->apply_before_tax() ) {
 
 						$product_cats = wp_get_post_terms( $values['product_id'], 'product_cat', array("fields" => "ids") );
+						$product_ids_on_sale = woocommerce_get_product_ids_on_sale();
 
 						$this_item_is_discounted = false;
 
@@ -1141,6 +1151,11 @@ class WC_Cart {
 						// Specific categories excluded from the discount
 						if ( sizeof( $coupon->exclude_product_categories ) > 0 )
 							if ( sizeof( array_intersect( $product_cats, $coupon->exclude_product_categories ) ) > 0 )
+								$this_item_is_discounted = false;
+
+						// Sale Items excluded from discount
+						if ( $coupon->exclude_sale_items == 'yes' )
+							if ( in_array( $values['product_id'], $product_ids_on_sale, true ) || in_array( $values['variation_id'], $product_ids_on_sale, true ) || in_array( $values['data']->get_parent(), $product_ids_on_sale, true ) )
 								$this_item_is_discounted = false;
 
 						// Apply filter
@@ -1578,13 +1593,15 @@ class WC_Cart {
 			// Packages array for storing 'carts'
 			$packages = array();
 
-			$packages[0]['contents'] 				= $this->get_cart();		// Items in the package
-			$packages[0]['contents_cost'] 			= 0;						// Cost of items in the package, set below
-			$packages[0]['applied_coupons']			= $this->applied_coupons; 	// Applied coupons - some, like free shipping, affect costs
-			$packages[0]['destination']['country'] 	= $woocommerce->customer->get_shipping_country();
-			$packages[0]['destination']['state'] 	= $woocommerce->customer->get_shipping_state();
-			$packages[0]['destination']['postcode'] = $woocommerce->customer->get_shipping_postcode();
-			$packages[0]['destination']['city'] 	= $woocommerce->customer->get_shipping_city();
+			$packages[0]['contents']                 = $this->get_cart();		// Items in the package
+			$packages[0]['contents_cost']            = 0;						// Cost of items in the package, set below
+			$packages[0]['applied_coupons']          = $this->applied_coupons; 	// Applied coupons - some, like free shipping, affect costs
+			$packages[0]['destination']['country']   = $woocommerce->customer->get_shipping_country();
+			$packages[0]['destination']['state']     = $woocommerce->customer->get_shipping_state();
+			$packages[0]['destination']['postcode']  = $woocommerce->customer->get_shipping_postcode();
+			$packages[0]['destination']['city']      = $woocommerce->customer->get_shipping_city();
+			$packages[0]['destination']['address']   = $woocommerce->customer->get_shipping_address();
+			$packages[0]['destination']['address_2'] = $woocommerce->customer->get_shipping_address_2();
 
 			foreach ( $this->get_cart() as $item )
 				if ( $item['data']->needs_shipping() )
@@ -1611,7 +1628,7 @@ class WC_Cart {
 				}
 			}
 
-			return apply_filters( 'woocomerce_cart_needs_shipping', $needs_shipping );
+			return apply_filters( 'woocommerce_cart_needs_shipping', $needs_shipping );
 		}
 
 		/**
@@ -1633,7 +1650,7 @@ class WC_Cart {
 
 			$show_shipping = true;
 
-			return apply_filters( 'woocomerce_cart_ready_to_calc_shipping', $show_shipping );
+			return apply_filters( 'woocommerce_cart_ready_to_calc_shipping', $show_shipping );
 
 		}
 
@@ -1736,19 +1753,27 @@ class WC_Cart {
 
 				// Check if applied
 				if ( $woocommerce->cart->has_discount( $coupon_code ) ) {
-					$woocommerce->add_error( __( 'Discount code already applied!', 'woocommerce' ) );
+					$woocommerce->add_error( __( 'Coupon code already applied!', 'woocommerce' ) );
 					return false;
 				}
 
 				// If its individual use then remove other coupons
 				if ( $the_coupon->individual_use == 'yes' ) {
-					$this->applied_coupons = array();
+					$this->applied_coupons = apply_filters( 'woocommerce_apply_individual_use_coupon', array(), $the_coupon, $this->applied_coupons );
 				}
 
-				foreach ( $this->applied_coupons as $code ) {
-					$coupon = new WC_Coupon($code);
-					if ( $coupon->is_valid() && $coupon->individual_use == 'yes' ) {
-						$this->applied_coupons = array();
+				if ( $this->applied_coupons ) {
+					foreach ( $this->applied_coupons as $code ) {
+
+						$existing_coupon = new WC_Coupon( $code );
+
+						if ( $existing_coupon->individual_use == 'yes' && false === apply_filters( 'woocommerce_apply_with_individual_use_coupon', false, $the_coupon, $existing_coupon, $this->applied_coupons ) ) {
+
+							// Reject new coupon
+							$woocommerce->add_message( sprintf( __( 'Sorry, coupon <code>%s</code> has already been applied and cannot be used in conjunction with other coupons.', 'woocommerce' ), $code ) );
+
+							return false;
+						}
 					}
 				}
 
@@ -1761,7 +1786,7 @@ class WC_Cart {
 
 				$this->set_session();
 
-				$woocommerce->add_message( __( 'Discount code applied successfully.', 'woocommerce' ) );
+				$woocommerce->add_message( __( 'Coupon code applied successfully.', 'woocommerce' ) );
 
 				do_action( 'woocommerce_applied_coupon', $coupon_code );
 

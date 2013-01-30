@@ -109,17 +109,18 @@ abstract class WC_Settings_API {
     	// Load form_field settings
     	$this->settings = get_option( $this->plugin_id . $this->id . '_settings', null );
 
-    	if ( ! is_array( $this->settings ) ) {
+    	if ( ! $this->settings || ! is_array( $this->settings ) ) {
 
     		// If there are no settings defined, load defaults
-    		$this->init_form_fields();
-
-    		foreach ( $this->form_fields as $k => $v )
-    			$this->settings[ $k ] = isset( $v['default'] ) ? $v['default'] : '';
+    		if ( $this->form_fields )
+	    		foreach ( $this->form_fields as $k => $v )
+	    			$this->settings[ $k ] = isset( $v['default'] ) ? $v['default'] : '';
     	}
 
-    	$this->settings = array_map( array( $this, 'format_settings' ), $this->settings );
-    	$this->enabled  = isset( $this->settings['enabled'] ) && $this->settings['enabled'] == 'yes' ? 'yes' : 'no';
+        if ( $this->settings && is_array( $this->settings ) ) {
+    	   $this->settings = array_map( array( $this, 'format_settings' ), $this->settings );
+    	   $this->enabled  = isset( $this->settings['enabled'] ) && $this->settings['enabled'] == 'yes' ? 'yes' : 'no';
+        }
     }
 
 
@@ -140,10 +141,6 @@ abstract class WC_Settings_API {
 
     	// Get option default if unset
 	    if ( ! isset( $this->settings[ $key ] ) ) {
-
-		    if ( ! isset( $this->form_fields ) )
-		    	$this->init_form_fields();
-
 		    $this->settings[ $key ] = isset( $this->form_fields[ $key ]['default'] ) ? $this->form_fields[ $key ]['default'] : '';
 	    }
 
@@ -180,8 +177,6 @@ abstract class WC_Settings_API {
      */
     public function generate_settings_html ( $form_fields = false ) {
 
-	    $this->init_form_fields();
-
     	if ( ! $form_fields ) {
     		$form_fields = $this->form_fields;
     	}
@@ -211,6 +206,8 @@ abstract class WC_Settings_API {
      * @return string
      */
     public function generate_text_html( $key, $data ) {
+    	global $woocommerce;
+
     	$html = '';
 
     	$data['title']			= isset( $data['title'] ) ? $data['title'] : '';
@@ -219,6 +216,22 @@ abstract class WC_Settings_API {
     	$data['css'] 			= isset( $data['css'] ) ? $data['css'] : '';
     	$data['placeholder'] 	= isset( $data['placeholder'] ) ? $data['placeholder'] : '';
     	$data['type'] 			= isset( $data['type'] ) ? $data['type'] : 'text';
+    	$data['desc_tip']		= isset( $data['desc_tip'] ) ? $data['desc_tip'] : false;
+    	$data['description']    = isset( $data['description'] ) ? $data['description'] : '';
+
+		// Description handling
+		if ( $data['desc_tip'] === true ) {
+			$description = '';
+			$tip         = $data['description'];
+		} elseif ( ! empty( $data['desc_tip'] ) ) {
+			$description = $data['description'];
+			$tip         = $data['desc_tip'];
+		} elseif ( ! empty( $data['description'] ) ) {
+			$description = $data['description'];
+			$tip         = '';
+		} else {
+			$description = $tip = '';
+		}
 
     	// Custom attribute handling
 		$custom_attributes = array();
@@ -230,11 +243,18 @@ abstract class WC_Settings_API {
 		$html .= '<tr valign="top">' . "\n";
 			$html .= '<th scope="row" class="titledesc">';
 			$html .= '<label for="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '">' . wp_kses_post( $data['title'] ) . '</label>';
+
+			if ( $tip )
+				$html .= '<img class="help_tip" data-tip="' . esc_attr( $tip ) . '" src="' . $woocommerce->plugin_url() . '/assets/images/help.png" height="16" width="16" />';
+
 			$html .= '</th>' . "\n";
 			$html .= '<td class="forminp">' . "\n";
 				$html .= '<fieldset><legend class="screen-reader-text"><span>' . wp_kses_post( $data['title'] ) . '</span></legend>' . "\n";
 				$html .= '<input class="input-text regular-input ' . esc_attr( $data['class'] ) . '" type="' . esc_attr( $data['type'] ) . '" name="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '" id="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '" style="' . esc_attr( $data['css'] ) . '" value="' . esc_attr( $this->get_option( $key ) ) . '" placeholder="' . esc_attr( $data['placeholder'] ) . '" ' . disabled( $data['disabled'], true, false ) . ' ' . implode( ' ', $custom_attributes ) . ' />';
-				if ( isset( $data['description'] ) && $data['description'] != '' ) { $html .= ' <p class="description">' . wp_kses_post( $data['description'] ) . '</p>' . "\n"; }
+
+				if ( $description )
+					$html .= ' <p class="description">' . wp_kses_post( $description ) . '</p>' . "\n";
+
 			$html .= '</fieldset>';
 			$html .= '</td>' . "\n";
 		$html .= '</tr>' . "\n";
@@ -252,12 +272,30 @@ abstract class WC_Settings_API {
      * @return string
      */
     public function generate_password_html( $key, $data ) {
+    	global $woocommerce;
+
     	$html = '';
 
     	$data['title']			= isset( $data['title'] ) ? $data['title'] : '';
     	$data['disabled']		= empty( $data['disabled'] ) ? false : true;
     	$data['class'] 			= isset( $data['class'] ) ? $data['class'] : '';
     	$data['css'] 			= isset( $data['css'] ) ? $data['css'] : '';
+    	$data['desc_tip']		= isset( $data['desc_tip'] ) ? $data['desc_tip'] : false;
+    	$data['description']    = isset( $data['description'] ) ? $data['description'] : '';
+
+		// Description handling
+		if ( $data['desc_tip'] === true ) {
+			$description = '';
+			$tip         = $data['description'];
+		} elseif ( ! empty( $data['desc_tip'] ) ) {
+			$description = $data['description'];
+			$tip         = $data['desc_tip'];
+		} elseif ( ! empty( $data['description'] ) ) {
+			$description = $data['description'];
+			$tip         = '';
+		} else {
+			$description = $tip = '';
+		}
 
     	// Custom attribute handling
 		$custom_attributes = array();
@@ -269,11 +307,18 @@ abstract class WC_Settings_API {
 		$html .= '<tr valign="top">' . "\n";
 			$html .= '<th scope="row" class="titledesc">';
 			$html .= '<label for="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '">' . wp_kses_post( $data['title'] ) . '</label>';
+
+			if ( $tip )
+				$html .= '<img class="help_tip" data-tip="' . esc_attr( $tip ) . '" src="' . $woocommerce->plugin_url() . '/assets/images/help.png" height="16" width="16" />';
+
 			$html .= '</th>' . "\n";
 			$html .= '<td class="forminp">' . "\n";
 				$html .= '<fieldset><legend class="screen-reader-text"><span>' . wp_kses_post( $data['title'] ) . '</span></legend>' . "\n";
 				$html .= '<input class="input-text regular-input ' . esc_attr( $data['class'] ) . '" type="password" name="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '" id="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '" style="' . esc_attr( $data['css'] ) . '" value="' . esc_attr( $this->get_option( $key ) ) . '" ' . disabled( $data['disabled'], true, false ) . ' ' . implode( ' ', $custom_attributes ) . ' />';
-				if ( isset( $data['description'] ) && $data['description'] != '' ) { $html .= ' <p class="description">' . esc_attr( $data['description'] ) . '</p>' . "\n"; }
+
+				if ( $description )
+					$html .= ' <p class="description">' . wp_kses_post( $description ) . '</p>' . "\n";
+
 			$html .= '</fieldset>';
 			$html .= '</td>' . "\n";
 		$html .= '</tr>' . "\n";
@@ -291,12 +336,31 @@ abstract class WC_Settings_API {
      * @return string
      */
     public function generate_textarea_html( $key, $data ) {
+    	global $woocommerce;
+
     	$html = '';
 
     	$data['title']			= isset( $data['title'] ) ? $data['title'] : '';
     	$data['disabled']		= empty( $data['disabled'] ) ? false : true;
     	$data['class']			= isset( $data['class'] ) ? $data['class'] : '';
     	$data['css'] 			= isset( $data['css'] ) ? $data['css'] : '';
+    	$data['desc_tip']		= isset( $data['desc_tip'] ) ? $data['desc_tip'] : false;
+    	$data['description']    = isset( $data['description'] ) ? $data['description'] : '';
+    	$data['placeholder'] 	= isset( $data['placeholder'] ) ? $data['placeholder'] : '';
+
+		// Description handling
+		if ( $data['desc_tip'] === true ) {
+			$description = '';
+			$tip         = $data['description'];
+		} elseif ( ! empty( $data['desc_tip'] ) ) {
+			$description = $data['description'];
+			$tip         = $data['desc_tip'];
+		} elseif ( ! empty( $data['description'] ) ) {
+			$description = $data['description'];
+			$tip         = '';
+		} else {
+			$description = $tip = '';
+		}
 
     	// Custom attribute handling
 		$custom_attributes = array();
@@ -308,11 +372,18 @@ abstract class WC_Settings_API {
 		$html .= '<tr valign="top">' . "\n";
 			$html .= '<th scope="row" class="titledesc">';
 			$html .= '<label for="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '">' . wp_kses_post( $data['title'] ) . '</label>';
+
+			if ( $tip )
+				$html .= '<img class="help_tip" data-tip="' . esc_attr( $tip ) . '" src="' . $woocommerce->plugin_url() . '/assets/images/help.png" height="16" width="16" />';
+
 			$html .= '</th>' . "\n";
 			$html .= '<td class="forminp">' . "\n";
 				$html .= '<fieldset><legend class="screen-reader-text"><span>' . wp_kses_post( $data['title'] ) . '</span></legend>' . "\n";
-				$html .= '<textarea rows="3" cols="20" class="input-text wide-input ' . esc_attr( $data['class'] ) . '" name="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '" id="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '" style="' . esc_attr( $data['css'] ) . '" ' . disabled( $data['disabled'], true, false ) . ' ' . implode( ' ', $custom_attributes ) . '>' . esc_textarea( $this->get_option( $key ) ) . '</textarea>';
-				if ( isset( $data['description'] ) && $data['description'] != '' ) { $html .= ' <p class="description">' . wp_kses_post( $data['description'] ) . '</p>' . "\n"; }
+				$html .= '<textarea rows="3" cols="20" class="input-text wide-input ' . esc_attr( $data['class'] ) . '" placeholder="' . esc_attr( $data['placeholder'] ) . '" name="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '" id="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '" style="' . esc_attr( $data['css'] ) . '" ' . disabled( $data['disabled'], true, false ) . ' ' . implode( ' ', $custom_attributes ) . '>' . esc_textarea( $this->get_option( $key ) ) . '</textarea>';
+
+				if ( $description )
+					$html .= ' <p class="description">' . wp_kses_post( $description ) . '</p>' . "\n";
+
 			$html .= '</fieldset>';
 			$html .= '</td>' . "\n";
 		$html .= '</tr>' . "\n";
@@ -330,13 +401,31 @@ abstract class WC_Settings_API {
      * @return string
      */
     public function generate_checkbox_html( $key, $data ) {
+    	global $woocommerce;
+
     	$html = '';
 
     	$data['title']			= isset( $data['title'] ) ? $data['title'] : '';
     	$data['label']			= isset( $data['label'] ) ? $data['label'] : $data['title'];
     	$data['disabled']		= empty( $data['disabled'] ) ? false : true;
-    	$data['class'] 		= isset( $data['class'] ) ? $data['class'] : '';
-    	$data['css'] 		= isset( $data['css'] ) ? $data['css'] : '';
+    	$data['class'] 		    = isset( $data['class'] ) ? $data['class'] : '';
+    	$data['css'] 		    = isset( $data['css'] ) ? $data['css'] : '';
+    	$data['desc_tip']		= isset( $data['desc_tip'] ) ? $data['desc_tip'] : false;
+    	$data['description']    = isset( $data['description'] ) ? $data['description'] : '';
+
+		// Description handling
+		if ( $data['desc_tip'] === true ) {
+			$description = '';
+			$tip         = $data['description'];
+		} elseif ( ! empty( $data['desc_tip'] ) ) {
+			$description = $data['description'];
+			$tip         = $data['desc_tip'];
+		} elseif ( ! empty( $data['description'] ) ) {
+			$description = $data['description'];
+			$tip         = '';
+		} else {
+			$description = $tip = '';
+		}
 
     	// Custom attribute handling
 		$custom_attributes = array();
@@ -346,12 +435,20 @@ abstract class WC_Settings_API {
 				$custom_attributes[] = esc_attr( $attribute ) . '="' . esc_attr( $attribute_value ) . '"';
 
 		$html .= '<tr valign="top">' . "\n";
-			$html .= '<th scope="row" class="titledesc">' . $data['title'] . '</th>' . "\n";
+			$html .= '<th scope="row" class="titledesc">' . $data['title'];
+
+			if ( $tip )
+				$html .= '<img class="help_tip" data-tip="' . esc_attr( $tip ) . '" src="' . $woocommerce->plugin_url() . '/assets/images/help.png" height="16" width="16" />';
+
+			$html .= '</th>' . "\n";
 			$html .= '<td class="forminp">' . "\n";
 				$html .= '<fieldset><legend class="screen-reader-text"><span>' . wp_kses_post( $data['title'] ) . '</span></legend>' . "\n";
 				$html .= '<label for="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '">';
 				$html .= '<input style="' . esc_attr( $data['css'] ) . '" name="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '" id="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '" type="checkbox" value="1" ' . checked( $this->get_option( $key ), 'yes', false ) . ' class="' . esc_attr( $data['class'] ).'" ' . disabled( $data['disabled'], true, false ) . ' ' . implode( ' ', $custom_attributes ) . ' /> ' . wp_kses_post( $data['label'] ) . '</label><br />' . "\n";
-				if ( isset( $data['description'] ) && $data['description'] != '' ) { $html .= ' <p class="description">' . wp_kses_post( $data['description'] ) . '</p>' . "\n"; }
+
+				if ( $description )
+					$html .= ' <p class="description">' . wp_kses_post( $description ) . '</p>' . "\n";
+
 			$html .= '</fieldset>';
 			$html .= '</td>' . "\n";
 		$html .= '</tr>' . "\n";
@@ -369,6 +466,8 @@ abstract class WC_Settings_API {
      * @return string
      */
     public function generate_select_html( $key, $data ) {
+    	global $woocommerce;
+
     	$html = '';
 
     	$data['title']			= isset( $data['title'] ) ? $data['title'] : '';
@@ -376,6 +475,22 @@ abstract class WC_Settings_API {
     	$data['options'] 		= isset( $data['options'] ) ? (array) $data['options'] : array();
     	$data['class'] 			= isset( $data['class'] ) ? $data['class'] : '';
     	$data['css'] 			= isset( $data['css'] ) ? $data['css'] : '';
+    	$data['desc_tip']		= isset( $data['desc_tip'] ) ? $data['desc_tip'] : false;
+    	$data['description']    = isset( $data['description'] ) ? $data['description'] : '';
+
+		// Description handling
+		if ( $data['desc_tip'] === true ) {
+			$description = '';
+			$tip         = $data['description'];
+		} elseif ( ! empty( $data['desc_tip'] ) ) {
+			$description = $data['description'];
+			$tip         = $data['desc_tip'];
+		} elseif ( ! empty( $data['description'] ) ) {
+			$description = $data['description'];
+			$tip         = '';
+		} else {
+			$description = $tip = '';
+		}
 
     	// Custom attribute handling
 		$custom_attributes = array();
@@ -387,6 +502,10 @@ abstract class WC_Settings_API {
 		$html .= '<tr valign="top">' . "\n";
 			$html .= '<th scope="row" class="titledesc">';
 			$html .= '<label for="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '">' . wp_kses_post( $data['title'] ) . '</label>';
+
+			if ( $tip )
+				$html .= '<img class="help_tip" data-tip="' . esc_attr( $tip ) . '" src="' . $woocommerce->plugin_url() . '/assets/images/help.png" height="16" width="16" />';
+
 			$html .= '</th>' . "\n";
 			$html .= '<td class="forminp">' . "\n";
 				$html .= '<fieldset><legend class="screen-reader-text"><span>' . wp_kses_post( $data['title'] ) . '</span></legend>' . "\n";
@@ -397,7 +516,10 @@ abstract class WC_Settings_API {
 				endforeach;
 
 				$html .= '</select>';
-				if ( isset( $data['description'] ) && $data['description'] != '' ) { $html .= ' <p class="description">' . wp_kses_post( $data['description'] ) . '</p>' . "\n"; }
+
+				if ( $description )
+					$html .= ' <p class="description">' . wp_kses_post( $description ) . '</p>' . "\n";
+
 			$html .= '</fieldset>';
 			$html .= '</td>' . "\n";
 		$html .= '</tr>' . "\n";
@@ -415,6 +537,8 @@ abstract class WC_Settings_API {
      * @return string
      */
     public function generate_multiselect_html( $key, $data ) {
+    	global $woocommerce;
+
     	$html = '';
 
     	$data['title']			= isset( $data['title'] ) ? $data['title'] : '';
@@ -422,6 +546,22 @@ abstract class WC_Settings_API {
     	$data['options'] 		= isset( $data['options'] ) ? (array) $data['options'] : array();
     	$data['class'] 			= isset( $data['class'] ) ? $data['class'] : '';
     	$data['css'] 			= isset( $data['css'] ) ? $data['css'] : '';
+    	$data['desc_tip']		= isset( $data['desc_tip'] ) ? $data['desc_tip'] : false;
+    	$data['description']    = isset( $data['description'] ) ? $data['description'] : '';
+
+		// Description handling
+		if ( $data['desc_tip'] === true ) {
+			$description = '';
+			$tip         = $data['description'];
+		} elseif ( ! empty( $data['desc_tip'] ) ) {
+			$description = $data['description'];
+			$tip         = $data['desc_tip'];
+		} elseif ( ! empty( $data['description'] ) ) {
+			$description = $data['description'];
+			$tip         = '';
+		} else {
+			$description = $tip = '';
+		}
 
     	// Custom attribute handling
 		$custom_attributes = array();
@@ -433,6 +573,10 @@ abstract class WC_Settings_API {
 		$html .= '<tr valign="top">' . "\n";
 			$html .= '<th scope="row" class="titledesc">';
 			$html .= '<label for="' . esc_attr( $this->plugin_id . $this->id . '_' . $key ) . '">' . wp_kses_post( $data['title'] ) . '</label>';
+
+			if ( $tip )
+				$html .= '<img class="help_tip" data-tip="' . esc_attr( $tip ) . '" src="' . $woocommerce->plugin_url() . '/assets/images/help.png" height="16" width="16" />';
+
 			$html .= '</th>' . "\n";
 			$html .= '<td class="forminp">' . "\n";
 				$html .= '<fieldset><legend class="screen-reader-text"><span>' . wp_kses_post( $data['title'] ) . '</span></legend>' . "\n";
@@ -443,7 +587,10 @@ abstract class WC_Settings_API {
 				}
 
 				$html .= '</select>';
-				if ( isset( $data['description'] ) && $data['description'] != '' ) { $html .= '<p class="description">' . wp_kses_post( $data['description'] ) . '</p>' . "\n"; }
+
+				if ( $description )
+					$html .= ' <p class="description">' . wp_kses_post( $description ) . '</p>' . "\n";
+
 			$html .= '</fieldset>';
 			$html .= '</td>' . "\n";
 		$html .= '</tr>' . "\n";
@@ -487,8 +634,6 @@ abstract class WC_Settings_API {
      * @return void
      */
     public function validate_settings_fields( $form_fields = false ) {
-
-	    $this->init_form_fields();
 
     	if ( ! $form_fields )
     		$form_fields = $this->form_fields;

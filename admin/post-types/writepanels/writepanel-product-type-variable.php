@@ -261,7 +261,7 @@ function variable_product_type_options() {
 			    jQuery('input.variable_is_downloadable, input.variable_is_virtual').change();
 
 				jQuery('.woocommerce_variations').unblock();
-
+				jQuery('.woocommerce_variations').trigger('woocommerce_variations_added');
 			});
 
 			return false;
@@ -301,6 +301,7 @@ function variable_product_type_options() {
 
 						$('#variable_product_options').load( this_page + ' #variable_product_options_inner', function() {
 							$('#variable_product_options').unblock();
+							jQuery('.woocommerce_variations').trigger('woocommerce_variations_added');
 						} );
 					} else {
 						$('#variable_product_options').unblock();
@@ -410,7 +411,7 @@ function variable_product_type_options() {
 				var input_tag = jQuery('select#field_to_edit :selected').attr('rel') ? jQuery('select#field_to_edit :selected').attr('rel') : 'input';
 
 				var value = prompt("<?php _e( 'Enter a value', 'woocommerce' ); ?>");
-				jQuery(input_tag + '[name^="' + field_to_edit + '"]').val( value );
+				jQuery(input_tag + '[name^="' + field_to_edit + '["]').val( value );
 				return false;
 
 			}
@@ -682,7 +683,7 @@ function process_product_meta_variable( $post_id ) {
 			else
 				update_post_meta( $variation_id, '_price', $regular_price );
 
-			if ( $date_from && strtotime( $date_from ) < strtotime( 'NOW', current_time( 'timestamp' ) ) )
+			if ( $sale_price != '' && $date_from && strtotime( $date_from ) < strtotime( 'NOW', current_time( 'timestamp' ) ) )
 				update_post_meta( $variation_id, '_price', $sale_price );
 
 			if ( $date_to && strtotime( $date_to ) < strtotime( 'NOW', current_time( 'timestamp' ) ) ) {

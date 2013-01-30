@@ -44,6 +44,7 @@ class WC_Shipping_Flat_Rate extends WC_Shipping_Method {
     function init() {
 
 		// Load the settings.
+		$this->init_form_fields();
 		$this->init_settings();
 
 		// Define user set variables
@@ -84,6 +85,7 @@ class WC_Shipping_Flat_Rate extends WC_Shipping_Method {
 							'type' 			=> 'text',
 							'description' 	=> __( 'This controls the title which the user sees during checkout.', 'woocommerce' ),
 							'default'		=> __( 'Flat Rate', 'woocommerce' ),
+							'desc_tip'      => true
 						),
 			'cost_per_order' => array(
 							'title' 		=> __( 'Cost per order', 'woocommerce' ),
@@ -92,8 +94,10 @@ class WC_Shipping_Flat_Rate extends WC_Shipping_Method {
 								'step'	=> 'any',
 								'min'	=> '0'
 							),
-							'description'	=> __( 'Enter a cost per order, e.g. 5.00. Leave blank to disable.', 'woocommerce' ),
+							'description'	=> __( 'Enter a cost (excluding tax) per order, e.g. 5.00. Leave blank to disable.', 'woocommerce' ),
 							'default'		=> '',
+							'desc_tip'      => true,
+							'placeholder'	=> '0.00'
 						),
 			'availability' => array(
 							'title' 		=> __( 'Method availability', 'woocommerce' ),
@@ -116,7 +120,6 @@ class WC_Shipping_Flat_Rate extends WC_Shipping_Method {
 			'type' => array(
 							'title' 		=> __( 'Calculation Type', 'woocommerce' ),
 							'type' 			=> 'select',
-							'description' 	=> '',
 							'default' 		=> 'order',
 							'options' 		=> array(
 								'order' 	=> __( 'Per Order - charge shipping for the entire order as a whole', 'woocommerce' ),
@@ -127,7 +130,6 @@ class WC_Shipping_Flat_Rate extends WC_Shipping_Method {
 			'tax_status' => array(
 							'title' 		=> __( 'Tax Status', 'woocommerce' ),
 							'type' 			=> 'select',
-							'description' 	=> '',
 							'default' 		=> 'taxable',
 							'options'		=> array(
 								'taxable' 	=> __( 'Taxable', 'woocommerce' ),
@@ -143,12 +145,16 @@ class WC_Shipping_Flat_Rate extends WC_Shipping_Method {
 							),
 							'description'	=> __( 'Cost excluding tax. Enter an amount, e.g. 2.50.', 'woocommerce' ),
 							'default' 		=> '',
+							'desc_tip'      => true,
+							'placeholder'	=> '0.00'
 						),
 			'fee' => array(
 							'title' 		=> __( 'Default Handling Fee', 'woocommerce' ),
 							'type' 			=> 'text',
 							'description'	=> __( 'Fee excluding tax. Enter an amount, e.g. 2.50, or a percentage, e.g. 5%. Leave blank to disable.', 'woocommerce' ),
 							'default'		=> '',
+							'desc_tip'      => true,
+							'placeholder'	=> '0.00'
 						),
 			'minimum_fee' => array(
 							'title' 		=> __( 'Minimum Fee', 'woocommerce' ),
@@ -159,12 +165,16 @@ class WC_Shipping_Flat_Rate extends WC_Shipping_Method {
 							),
 							'description'	=> __( 'Enter a minimum fee amount. Fee\'s less than this will be increased. Leave blank to disable.', 'woocommerce' ),
 							'default'		=> '',
+							'desc_tip'      => true,
+							'placeholder'	=> '0.00'
 						),
 			'options' => array(
 							'title' 		=> __( 'Shipping Options', 'woocommerce' ),
 							'type' 			=> 'textarea',
 							'description'	=> __( 'Optional extra shipping options with additional costs (one per line). Example: <code>Option Name|Cost|Per-order (yes or no)</code>. Example: <code>Priority Mail|6.95|yes</code>. If per-order is set to no, it will use the "Calculation Type" setting.', 'woocommerce' ),
 							'default'		=> '',
+							'desc_tip'      => true,
+							'placeholder'	=> __( 'Option Name|Cost|Per-order (yes or no)', 'woocommerce' )
 						),
 			);
 

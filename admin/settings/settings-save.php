@@ -115,6 +115,7 @@ function woocommerce_update_options( $options ) {
 	    	break;
 
 	    	// Special types
+	    	case "multiselect" :
 	    	case "multi_select_countries" :
 
 	    		// Get countries array

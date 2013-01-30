@@ -340,13 +340,17 @@ function woocommerce_order_items_meta_box( $post ) {
 
 					<?php do_action( 'woocommerce_admin_order_item_headers' ); ?>
 
-					<th class="tax_class"><?php _e( 'Tax Class', 'woocommerce' ); ?>&nbsp;<a class="tips" data-tip="<?php _e( 'Tax class for the line item', 'woocommerce' ); ?>." href="#">[?]</a></th>
+					<?php if ( get_option( 'woocommerce_calc_taxes' ) == 'yes' ) : ?>
+						<th class="tax_class"><?php _e( 'Tax Class', 'woocommerce' ); ?>&nbsp;<a class="tips" data-tip="<?php _e( 'Tax class for the line item', 'woocommerce' ); ?>." href="#">[?]</a></th>
+					<?php endif; ?>
 
 					<th class="quantity"><?php _e( 'Qty', 'woocommerce' ); ?></th>
 
 					<th class="line_cost"><?php _e( 'Cost', 'woocommerce' ); ?>&nbsp;<a class="tips" data-tip="<?php _e( 'Line subtotals are before pre-tax discounts, totals are after.', 'woocommerce' ); ?>" href="#">[?]</a></th>
 
-					<th class="line_tax"><?php _e( 'Tax', 'woocommerce' ); ?></th>
+					<?php if ( get_option( 'woocommerce_calc_taxes' ) == 'yes' ) : ?>
+						<th class="line_tax"><?php _e( 'Tax', 'woocommerce' ); ?></th>
+					<?php endif; ?>
 				</tr>
 			</thead>
 			<tbody id="order_items_list">
@@ -550,10 +554,10 @@ function woocommerce_order_totals_meta_box( $post ) {
 				<select name="_shipping_method" id="_shipping_method" class="first">
 					<option value=""><?php _e( 'N/A', 'woocommerce' ); ?></option>
 					<?php
-						$chosen_method 	= $data['_shipping_method'][0];
+						$chosen_method 	= ! empty( $data['_shipping_method'][0] ) ? $data['_shipping_method'][0] : '';
 						$found_method 	= false;
 
-						if ( $woocommerce->shipping ) {
+						if ( $woocommerce->shipping() ) {
 							foreach ( $woocommerce->shipping->load_shipping_methods() as $method ) {
 
 								if ( strpos( $chosen_method, $method->id ) === 0 )
@@ -580,6 +584,9 @@ function woocommerce_order_totals_meta_box( $post ) {
 		<?php do_action( 'woocommerce_admin_order_totals_after_shipping', $post->ID ) ?>
 		<div class="clear"></div>
 	</div>
+
+	<?php if ( get_option( 'woocommerce_calc_taxes' ) == 'yes' ) : ?>
+
 	<div class="totals_group tax_rows_group">
 		<h4><?php _e( 'Tax Rows', 'woocommerce' ); ?></h4>
 		<div id="tax_rows" class="total_rows">
@@ -632,6 +639,9 @@ function woocommerce_order_totals_meta_box( $post ) {
 		</ul>
 		<div class="clear"></div>
 	</div>
+
+	<?php endif; ?>
+
 	<div class="totals_group">
 		<h4><?php _e( 'Order Totals', 'woocommerce' ); ?></h4>
 		<ul class="totals">
@@ -649,10 +659,10 @@ function woocommerce_order_totals_meta_box( $post ) {
 				<select name="_payment_method" id="_payment_method" class="first">
 					<option value=""><?php _e( 'N/A', 'woocommerce' ); ?></option>
 					<?php
-						$chosen_method 	= $data['_payment_method'][0];
+						$chosen_method 	= ! empty( $data['_payment_method'][0] ) ? $data['_payment_method'][0] : '';
 						$found_method 	= false;
 
-						if ( $woocommerce->payment_gateways ) {
+						if ( $woocommerce->payment_gateways() ) {
 							foreach ( $woocommerce->payment_gateways->payment_gateways() as $gateway ) {
 								if ( $gateway->enabled == "yes" ) {
 									echo '<option value="' . esc_attr( $gateway->id ) . '" ' . selected( $chosen_method, $gateway->id, false ) . '>' . esc_html( $gateway->get_title() ) . '</option>';
@@ -675,7 +685,9 @@ function woocommerce_order_totals_meta_box( $post ) {
 		<div class="clear"></div>
 	</div>
 	<p class="buttons">
-		<button type="button" class="button calc_line_taxes"><?php _e( 'Calc taxes', 'woocommerce' ); ?></button>
+		<?php if ( get_option( 'woocommerce_calc_taxes' ) == 'yes' ) : ?>
+			<button type="button" class="button calc_line_taxes"><?php _e( 'Calc taxes', 'woocommerce' ); ?></button>
+		<?php endif; ?>
 		<button type="button" class="button calc_totals button-primary"><?php _e( 'Calc totals', 'woocommerce' ); ?></button>
 	</p>
 	<?php
@@ -869,12 +881,13 @@ function woocommerce_process_shop_order_meta( $post_id, $post ) {
 	$meta_keys 		= isset( $_POST['meta_key'] ) ? $_POST['meta_key'] : array();
 	$meta_values 	= isset( $_POST['meta_value'] ) ? $_POST['meta_value'] : array();
 
-	foreach ( $meta_keys as $id => $value ) {
+	foreach ( $meta_keys as $id => $meta_key ) {
+		$meta_value = ( empty( $meta_values[ $id ] ) && ! is_numeric( $meta_values[ $id ] ) ) ? '' : $meta_values[ $id ];
 		$wpdb->update(
 			$wpdb->prefix . "woocommerce_order_itemmeta",
 			array(
-				'meta_key' => $value,
-				'meta_value' => empty( $meta_values[ $id ] ) ? '' : $meta_values[ $id ]
+				'meta_key' => $meta_key,
+				'meta_value' => $meta_value
 			),
 			array( 'meta_id' => $id ),
 			array( '%s', '%s' ),

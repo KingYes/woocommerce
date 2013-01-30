@@ -32,6 +32,65 @@ function get_product( $the_product = false, $args = array() ) {
 	return $woocommerce->product_factory->get_product( $the_product, $args );
 }
 
+/**
+ * Function that returns an array containing the IDs of the products that are on sale.
+ *
+ * @access public
+ * @return array
+ */
+function woocommerce_get_product_ids_on_sale() {
+	// Load from cache
+	$product_ids_on_sale = get_transient( 'wc_products_onsale' );
+
+	// Valid cache found
+	if ( false !== $product_ids_on_sale )
+		return $product_ids_on_sale;
+
+	$on_sale = get_posts( array(
+		'post_type'      => array( 'product', 'product_variation' ),
+		'posts_per_page' => -1,
+		'post_status'    => 'publish',
+		'meta_query'     => array(
+			array(
+				'key'        => '_sale_price',
+				'value'      => 0,
+				'compare'    => '>=',
+				'type'       => 'DECIMAL',
+			),
+			array(
+				'key'        => '_sale_price',
+				'value'      => '',
+				'compare'    => '!=',
+				'type'       => '',
+			)
+		),
+		'fields'         => 'id=>parent',
+	) );
+
+	$product_ids = array_keys( $on_sale );
+	$parent_ids  = array_values( $on_sale );
+
+	// Check for scheduled sales which have not started
+	foreach ( $product_ids as $key => $id ) {
+		if ( get_post_meta( $id, '_sale_price_dates_from', true ) > current_time( 'timestamp' ) ) {
+			unset( $product_ids[ $key ] );
+		}
+	}
+
+	$product_ids_on_sale = array_unique( array_merge( $product_ids, $parent_ids ) );
+
+	set_transient( 'wc_products_onsale', $product_ids_on_sale );
+
+	return $product_ids_on_sale;
+}
+
+/**
+ * woocommerce_sanitize_taxonomy_name function.
+ *
+ * @access public
+ * @param mixed $taxonomy
+ * @return void
+ */
 function woocommerce_sanitize_taxonomy_name( $taxonomy ) {
 	return str_replace( array( ' ', '_' ), '-', strtolower( $taxonomy ) );
 }
@@ -53,11 +112,18 @@ function woocommerce_get_attachment_image_attributes( $attr ) {
 add_filter( 'wp_get_attachment_image_attributes', 'woocommerce_get_attachment_image_attributes' );
 
 
+/**
+ * woocommerce_prepare_attachment_for_js function.
+ *
+ * @access public
+ * @param mixed $response
+ * @return void
+ */
 function woocommerce_prepare_attachment_for_js( $response ) {
 
 	if ( isset( $response['url'] ) && strstr( $response['url'], 'woocommerce_uploads/' ) ) {
 		$response['full']['url'] = woocommerce_placeholder_img_src();
-		if ( $response['sizes'] ) {
+		if ( isset( $response['sizes'] ) ) {
 			foreach( $response['sizes'] as $size => $value ) {
 				$response['sizes'][ $size ]['url'] = woocommerce_placeholder_img_src();
 			}
@@ -170,6 +236,35 @@ function woocommerce_get_weight( $weight, $to_unit ) {
 		}
 	}
 	return ( $weight < 0 ) ? 0 : $weight;
+}
+
+
+/**
+ * Get product name with extra details such as SKU price and attributes. Used within admin.
+ *
+ * @access public
+ * @param mixed $product
+ * @return void
+ */
+function woocommerce_get_formatted_product_name( $product ) {
+	if ( ! $product || ! is_object( $product ) )
+		return;
+
+	if ( $product->get_sku() )
+		$identifier = $product->get_sku();
+	elseif ( $product->is_type( 'variation' ) )
+		$identifier = '#' . $product->variation_id;
+	else
+		$identifier = '#' . $product->id;
+
+	if ( $product->is_type( 'variation' ) ) {
+		$attributes = $product->get_variation_attributes();
+		$extra_data = ' &ndash; ' . implode( ', ', $attributes ) . ' &ndash; ' . woocommerce_price( $product->get_price() );
+	} else {
+		$extra_data = '';
+	}
+
+	return sprintf( __( '%s &ndash; %s%s', 'woocommerce' ), $identifier, $product->get_title(), $extra_data );
 }
 
 
@@ -784,7 +879,7 @@ function woocommerce_get_formatted_variation( $variation = '', $flat = false ) {
             	if ( ! is_wp_error( $term ) && $term->name )
             		$value = $term->name;
             } else {
-            	$value = ucfirst($value);
+            	$value = ucfirst( $value );
             }
 
 			if ( $flat )
@@ -1324,17 +1419,24 @@ function woocommerce_get_product_terms( $object_id, $taxonomy, $fields = 'all' )
  * @param int $show_uncategorized (default: 1)
  * @return string
  */
-function woocommerce_product_dropdown_categories( $show_counts = 1, $hierarchal = 1, $show_uncategorized = 1 ) {
+function woocommerce_product_dropdown_categories( $show_counts = 1, $hierarchical = 1, $show_uncategorized = 1, $orderby = '' ) {
 	global $wp_query, $woocommerce;
 
 	include_once( $woocommerce->plugin_path() . '/classes/walkers/class-product-cat-dropdown-walker.php' );
 
 	$r = array();
 	$r['pad_counts'] 	= 1;
-	$r['hierarchal'] 	= $hierarchal;
+	$r['hierarchical'] 	= $hierarchical;
 	$r['hide_empty'] 	= 1;
 	$r['show_count'] 	= $show_counts;
 	$r['selected'] 		= ( isset( $wp_query->query['product_cat'] ) ) ? $wp_query->query['product_cat'] : '';
+
+	$r['menu_order'] = false;
+
+	if ( $orderby == 'order' )
+		$r['menu_order'] = 'asc';
+	elseif ( $orderby )
+		$r['orderby'] = $orderby;
 
 	$terms = get_terms( 'product_cat', $r );
 
@@ -1832,9 +1934,11 @@ function woocommerce_add_order_item( $order_id, $item ) {
 		)
 	);
 
-	do_action( 'woocommerce_new_order_item', absint( $wpdb->insert_id ) );
+	$item_id = absint( $wpdb->insert_id );
 
-	return absint( $wpdb->insert_id );
+	do_action( 'woocommerce_new_order_item', $item_id, $item, $order_id );
+
+	return $item_id;
 }
 
 /**
@@ -1960,7 +2064,7 @@ function _woocommerce_term_recount( $terms, $taxonomy, $callback = true, $terms_
 	$count_query = $wpdb->prepare( "
 		SELECT COUNT( DISTINCT posts.ID ) FROM {$wpdb->posts} as posts
 
-		LEFT JOIN {$wpdb->postmeta} AS meta_visibilty ON posts.ID = meta_visibilty.post_id
+		LEFT JOIN {$wpdb->postmeta} AS meta_visibility ON posts.ID = meta_visibility.post_id
 		LEFT JOIN {$wpdb->term_relationships} AS rel ON posts.ID = rel.object_ID
 		LEFT JOIN {$wpdb->term_taxonomy} AS tax USING( term_taxonomy_id )
 		LEFT JOIN {$wpdb->terms} AS term USING( term_id )
@@ -1969,9 +2073,9 @@ function _woocommerce_term_recount( $terms, $taxonomy, $callback = true, $terms_
 		WHERE 	posts.post_status 	= 'publish'
 		AND 	posts.post_type 	= 'product'
 		AND 	(
-			meta_visibilty.meta_key = '_visibility'
+			meta_visibility.meta_key = '_visibility'
 			AND
-			meta_visibilty.meta_value IN ( 'visible', 'catalog' )
+			meta_visibility.meta_value IN ( 'visible', 'catalog' )
 		)
 		AND 	tax.taxonomy	= %s
 		$stock_query
@@ -2102,15 +2206,21 @@ function woocommerce_change_term_counts( $terms, $taxonomies, $args ) {
 	if ( ! in_array( $taxonomies[0], apply_filters( 'woocommerce_change_term_counts', array( 'product_cat', 'product_tag' ) ) ) )
 		return $terms;
 
+	$term_counts = $o_term_counts = get_transient( 'wc_term_counts' );
+
 	foreach ( $terms as &$term ) {
 		// If the original term count is zero, there's no way the product count could be higher.
 		if ( empty( $term->count ) ) continue;
 
-		$count = get_woocommerce_term_meta( $term->term_id, 'product_count_' . $taxonomies[0] , true );
+		$term_counts[ $term->term_id ] = isset( $term_counts[ $term->term_id ] ) ? $term_counts[ $term->term_id ] : get_woocommerce_term_meta( $term->term_id, 'product_count_' . $taxonomies[0] , true );
 
-		if ( $count != '' )
-			$term->count = $count;
+		if ( $term_counts[ $term->term_id ] != '' )
+			$term->count = $term_counts[ $term->term_id ];
 	}
+
+	// Update transient
+	if ( $term_counts != $o_term_counts )
+		set_transient( 'wc_term_counts', $term_counts );
 
 	return $terms;
 }

@@ -35,6 +35,7 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
         $this->notify_url   = str_replace( 'https:', 'http:', add_query_arg( 'wc-api', 'WC_Gateway_Paypal', home_url( '/' ) ) );
 
 		// Load the settings.
+		$this->init_form_fields();
 		$this->init_settings();
 
 		// Define user set variables
@@ -124,7 +125,8 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 							'title' => __( 'Title', 'woocommerce' ),
 							'type' => 'text',
 							'description' => __( 'This controls the title which the user sees during checkout.', 'woocommerce' ),
-							'default' => __( 'PayPal', 'woocommerce' )
+							'default' => __( 'PayPal', 'woocommerce' ),
+							'desc_tip'      => true,
 						),
 			'description' => array(
 							'title' => __( 'Description', 'woocommerce' ),
@@ -136,13 +138,16 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 							'title' => __( 'PayPal Email', 'woocommerce' ),
 							'type' 			=> 'email',
 							'description' => __( 'Please enter your PayPal email address; this is needed in order to take payment.', 'woocommerce' ),
-							'default' => ''
+							'default' => '',
+							'desc_tip'      => true,
+							'placeholder'	=> 'you@youremail.com'
 						),
 			'invoice_prefix' => array(
 							'title' => __( 'Invoice Prefix', 'woocommerce' ),
 							'type' => 'text',
 							'description' => __( 'Please enter a prefix for your invoice numbers. If you use your PayPal account for multiple stores ensure this prefix is unqiue as PayPal will not allow orders with the same invoice number.', 'woocommerce' ),
-							'default' => 'WC-'
+							'default' => 'WC-',
+							'desc_tip'      => true,
 						),
 			'form_submission_method' => array(
 							'title' => __( 'Submission method', 'woocommerce' ),
@@ -155,7 +160,9 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 							'title' => __( 'Page Style', 'woocommerce' ),
 							'type' => 'text',
 							'description' => __( 'Optionally enter the name of the page style you wish to use. These are defined within your PayPal account.', 'woocommerce' ),
-							'default' => ''
+							'default' => '',
+							'desc_tip'      => true,
+							'placeholder'	=> __( 'Optional', 'woocommerce' )
 						),
 			'shipping' => array(
 							'title' => __( 'Shipping options', 'woocommerce' ),
@@ -538,7 +545,7 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
         if ( 'yes' == $this->debug ) {
         	$this->log->add( 'paypal', 'Received invalid response from PayPal' );
         	if ( is_wp_error( $response ) )
-        		$this->log->add( 'paypal', 'Error response: ' . $result->get_error_message() );
+        		$this->log->add( 'paypal', 'Error response: ' . $response->get_error_message() );
         }
 
         return false;
@@ -671,7 +678,7 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 		            		sprintf( __( 'Order %s has been marked as refunded - PayPal reason code: %s', 'woocommerce' ), $order->get_order_number(), $posted['reason_code'] )
 						);
 
-						$mailer->send( get_option( 'woocommerce_new_order_email_recipient' ), sprintf( __( 'Payment for order %s refunded/reversed', 'woocommerce' ), $order->get_order_number() ), $message );
+						$mailer->send( get_option( 'admin_email' ), sprintf( __( 'Payment for order %s refunded/reversed', 'woocommerce' ), $order->get_order_number() ), $message );
 
 					}
 
@@ -689,7 +696,7 @@ class WC_Gateway_Paypal extends WC_Payment_Gateway {
 	            		sprintf(__( 'Order %s has been marked as refunded - PayPal reason code: %s', 'woocommerce' ), $order->get_order_number(), $posted['reason_code'] )
 					);
 
-					$mailer->send( get_option( 'woocommerce_new_order_email_recipient' ), sprintf( __( 'Payment for order %s refunded/reversed', 'woocommerce' ), $order->get_order_number() ), $message );
+					$mailer->send( get_option( 'admin_email' ), sprintf( __( 'Payment for order %s refunded/reversed', 'woocommerce' ), $order->get_order_number() ), $message );
 
 	            break;
 	            default :

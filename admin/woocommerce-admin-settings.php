@@ -52,14 +52,6 @@ if ( ! function_exists( 'woocommerce_settings' ) ) {
 	    	 	include_once( 'settings/settings-save.php' );
 
 		    	switch ( $current_tab ) {
-					case "general" :
-					case "pages" :
-					case "catalog" :
-					case "inventory" :
-					case "tax" :
-					case "email" :
-						woocommerce_update_options( $woocommerce_settings[ $current_tab ] );
-					break;
 					case "payment_gateways" :
 						woocommerce_update_options( $woocommerce_settings[ $current_tab ] );
 						$woocommerce->payment_gateways->process_admin_options();
@@ -68,10 +60,16 @@ if ( ! function_exists( 'woocommerce_settings' ) ) {
 						woocommerce_update_options( $woocommerce_settings[ $current_tab ] );
 						$woocommerce->shipping->process_admin_options();
 					break;
+					default :
+						if ( isset( $woocommerce_settings[ $current_tab ] ) )
+							woocommerce_update_options( $woocommerce_settings[ $current_tab ] );
+
+						// Trigger action for tab
+						do_action( 'woocommerce_update_options_' . $current_tab );
+					break;
 				}
 
 				do_action( 'woocommerce_update_options' );
-				do_action( 'woocommerce_update_options_' . $current_tab );
 
 				// Handle Colour Settings
 				if ( $current_tab == 'general' && get_option('woocommerce_frontend_css') == 'yes' ) {
@@ -101,7 +99,7 @@ if ( ! function_exists( 'woocommerce_settings' ) ) {
 			} else {
 
 				// If saving a shipping methods options, load 'er up
-				if ( ( $current_tab == 'shipping' || $current_tab == 'payment_gateways' ) && class_exists( $current_section ) ) {
+				if ( ( $current_tab == 'shipping' || $current_tab == 'payment_gateways' && class_exists( $current_section ) ) ) {
 
 					$current_section_class = new $current_section();
 					do_action( 'woocommerce_update_options_' . $current_tab . '_' . $current_section_class->id );
@@ -110,7 +108,7 @@ if ( ! function_exists( 'woocommerce_settings' ) ) {
 				} elseif ( $current_tab == 'email' ) {
 
 					// Load mailer
-					$mailer 	= $woocommerce->mailer();
+					$mailer = $woocommerce->mailer();
 
 					if ( class_exists( $current_section ) ) {
 						$current_section_class = new $current_section();
@@ -226,6 +224,9 @@ if ( ! function_exists( 'woocommerce_settings' ) ) {
 							'email' => __( 'Emails', 'woocommerce' ),
 							'integration' => __( 'Integration', 'woocommerce' )
 						);
+
+						if ( ! $woocommerce->integrations->get_integrations() )
+							unset( $tabs['integration'] );
 
 						$tabs = apply_filters('woocommerce_settings_tabs_array', $tabs);
 
@@ -389,14 +390,14 @@ if ( ! function_exists( 'woocommerce_settings' ) ) {
 			            		woocommerce_admin_fields( $woocommerce_settings[ $current_tab ] );
 			            	}
 
-							echo '</div>';
-
 						break;
 						case "integration" :
 
 							$integrations = $woocommerce->integrations->get_integrations();
 
 							$current_section = empty( $current_section ) ? key( $integrations ) : $current_section;
+
+							$links = array();
 
 							foreach ( $integrations as $integration ) {
 								$title = empty( $integration->method_title ) ? ucwords( $integration->id ) : ucwords( $integration->method_title );
@@ -693,7 +694,7 @@ function woocommerce_admin_fields( $options ) {
 					</th>
                     <td class="forminp forminp-<?php echo sanitize_title( $value['type'] ) ?>">
                     	<select
-                    		name="<?php echo esc_attr( $value['id'] ); ?>"
+                    		name="<?php echo esc_attr( $value['id'] ); ?><?php if ( $value['type'] == 'multiselect' ) echo '[]'; ?>"
                     		id="<?php echo esc_attr( $value['id'] ); ?>"
                     		style="<?php echo esc_attr( $value['css'] ); ?>"
                     		class="<?php echo esc_attr( $value['class'] ); ?>"

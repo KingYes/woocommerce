@@ -7,12 +7,46 @@
  * @author 		WooThemes
  * @category 	Core
  * @package 	WooCommerce/Functions/AJAX
- * @version     1.6.4
+ * @version     2.0.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 /** Frontend AJAX events **************************************************/
+
+/**
+ * woocommerce_get_refreshed_fragments function.
+ *
+ * @access public
+ * @return void
+ */
+function woocommerce_get_refreshed_fragments() {
+	global $woocommerce;
+
+	header( 'Content-Type: application/json; charset=utf-8' );
+
+	// Get mini cart
+	ob_start();
+	woocommerce_mini_cart();
+	$mini_cart = ob_get_clean();
+
+	// Fragments and mini cart are returned
+	$data = array(
+		'fragments' => apply_filters( 'add_to_cart_fragments', array(
+				'div.widget_shopping_cart_content' => '<div class="widget_shopping_cart_content">' . $mini_cart . '</div>'
+			)
+		),
+		'cart_hash' => md5( json_encode( $woocommerce->cart->get_cart() ) )
+	);
+
+	echo json_encode( $data );
+
+	die();
+}
+
+add_action( 'wp_ajax_nopriv_woocommerce_get_refreshed_fragments', 'woocommerce_get_refreshed_fragments' );
+add_action( 'wp_ajax_woocommerce_get_refreshed_fragments', 'woocommerce_get_refreshed_fragments' );
+
 
 /**
  * Process ajax login
@@ -23,6 +57,8 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 function woocommerce_sidebar_login_ajax_process() {
 
 	check_ajax_referer( 'woocommerce-sidebar-login-action', 'security' );
+
+	header( 'Content-Type: application/json; charset=utf-8' );
 
 	// Get post data
 	$creds = array();
@@ -72,8 +108,6 @@ function woocommerce_sidebar_login_ajax_process() {
 			$result['error'] = __( 'Please enter your username and password to login.', 'woocommerce' );
 		}
 	}
-
-	header( 'content-type: application/json; charset=utf-8' );
 
 	echo esc_js( $_GET['callback'] ) . '(' . json_encode( $result ) . ')';
 
@@ -151,7 +185,7 @@ function woocommerce_ajax_update_order_review() {
 		define( 'WOOCOMMERCE_CHECKOUT', true );
 
 	if ( sizeof( $woocommerce->cart->get_cart() ) == 0 ) {
-		echo '<div class="woocommerce_error">' . __( 'Sorry, your session has expired.', 'woocommerce' ) . ' <a href="' . home_url() . '">' . __( 'Return to homepage &rarr;', 'woocommerce' ) . '</a></div>';
+		echo '<div class="woocommerce-error">' . __( 'Sorry, your session has expired.', 'woocommerce' ) . ' <a href="' . home_url() . '">' . __( 'Return to homepage &rarr;', 'woocommerce' ) . '</a></div>';
 		die();
 	}
 
@@ -219,24 +253,32 @@ function woocommerce_ajax_add_to_cart() {
 
 	check_ajax_referer( 'add-to-cart', 'security' );
 
-	$product_id = (int) apply_filters('woocommerce_add_to_cart_product_id', $_POST['product_id']);
+	$product_id = apply_filters('woocommerce_add_to_cart_product_id', absint( $_POST['product_id'] ) );
+	$quantity   = empty( $_POST['quantity'] ) ? 1 : apply_filters( 'woocommerce_stock_amount', $_POST['quantity'] );
 
-	$passed_validation = apply_filters('woocommerce_add_to_cart_validation', true, $product_id, 1);
+	$passed_validation = apply_filters('woocommerce_add_to_cart_validation', true, $product_id, $quantity );
 
-	if ($passed_validation && $woocommerce->cart->add_to_cart($product_id, 1)) :
-		// Return html fragments
-		$data = apply_filters('add_to_cart_fragments', array());
-		do_action( 'woocommerce_ajax_added_to_cart', $product_id);
-	else :
+	if ( $passed_validation && $woocommerce->cart->add_to_cart( $product_id, $quantity ) ) {
+
+		do_action( 'woocommerce_ajax_added_to_cart', $product_id );
+
+		// Return fragments
+		woocommerce_get_refreshed_fragments();
+
+	} else {
+
+		header( 'Content-Type: application/json; charset=utf-8' );
+
 		// If there was an error adding to the cart, redirect to the product page to show any errors
 		$data = array(
 			'error' => true,
 			'product_url' => get_permalink( $product_id )
 		);
-		$woocommerce->set_messages();
-	endif;
 
-	echo json_encode( $data );
+		$woocommerce->set_messages();
+
+		echo json_encode( $data );
+	}
 
 	die();
 }
@@ -359,6 +401,8 @@ add_action('wp_ajax_woocommerce-mark-order-processing', 'woocommerce_mark_order_
 function woocommerce_add_new_attribute() {
 
 	check_ajax_referer( 'add-attribute', 'security' );
+
+	header( 'Content-Type: application/json; charset=utf-8' );
 
 	$taxonomy = esc_attr( $_POST['taxonomy'] );
 	$term = stripslashes( $_POST['term'] );
@@ -516,8 +560,6 @@ function woocommerce_save_attributes() {
 
 		 }
 	}
-
-	var_dump($attributes);
 
 	if ( ! function_exists( 'attributes_cmp' ) ) {
 		function attributes_cmp( $a, $b ) {
@@ -914,6 +956,8 @@ function woocommerce_get_customer_details() {
 
 	check_ajax_referer( 'get-customer-details', 'security' );
 
+	header( 'Content-Type: application/json; charset=utf-8' );
+
 	$user_id = (int) trim(stripslashes($_POST['user_id']));
 	$type_to_load = esc_attr(trim(stripslashes($_POST['type_to_load'])));
 
@@ -931,7 +975,9 @@ function woocommerce_get_customer_details() {
 		$type_to_load . '_phone' => get_user_meta( $user_id, $type_to_load . '_phone', true ),
 	);
 
-	echo json_encode($customer_data);
+	$customer_data = apply_filters( 'woocommerce_found_customer_details', $customer_data );
+
+	echo json_encode( $customer_data );
 
 	// Quit out
 	die();
@@ -1222,6 +1268,8 @@ function woocommerce_calc_line_taxes() {
 	global $woocommerce, $wpdb;
 
 	check_ajax_referer( 'calc-totals', 'security' );
+
+	header( 'Content-Type: application/json; charset=utf-8' );
 
 	$tax = new WC_Tax();
 
@@ -1538,6 +1586,8 @@ function woocommerce_json_search_products( $x = '', $post_types = array('product
 
 	check_ajax_referer( 'search-products', 'security' );
 
+	header( 'Content-Type: application/json; charset=utf-8' );
+
 	$term = (string) urldecode(stripslashes(strip_tags($_GET['term'])));
 
 	if (empty($term)) die();
@@ -1606,17 +1656,15 @@ function woocommerce_json_search_products( $x = '', $post_types = array('product
 
 	$found_products = array();
 
-	if ($posts) foreach ($posts as $post) {
+	if ( $posts ) foreach ( $posts as $post ) {
 
-		$SKU = get_post_meta($post, '_sku', true);
+		$product = get_product( $post );
 
-		if (isset($SKU) && $SKU) $SKU = ' (SKU: ' . $SKU . ')';
-
-		$found_products[$post] = get_the_title( $post ) . ' &ndash; #' . $post . $SKU;
+		$found_products[ $post ] = woocommerce_get_formatted_product_name( $product );
 
 	}
 
-	$found_products = apply_filters( 'woocommerce_json_search_found_products', $found_products);
+	$found_products = apply_filters( 'woocommerce_json_search_found_products', $found_products );
 
 	echo json_encode( $found_products );
 
@@ -1649,6 +1697,8 @@ function woocommerce_json_search_customers() {
 
 	check_ajax_referer( 'search-customers', 'security' );
 
+	header( 'Content-Type: application/json; charset=utf-8' );
+
 	$term = urldecode( stripslashes( strip_tags( $_GET['term'] ) ) );
 
 	if ( empty( $term ) )
@@ -1678,63 +1728,6 @@ function woocommerce_json_search_customers() {
 }
 
 add_action('wp_ajax_woocommerce_json_search_customers', 'woocommerce_json_search_customers');
-
-
-/**
- * Search for products for upsells/crosssells
- *
- * @access public
- * @return void
- */
-function woocommerce_upsell_crosssell_search_products() {
-
-	check_ajax_referer( 'search-products', 'security' );
-
-	$search = (string) urldecode(stripslashes(strip_tags($_POST['search'])));
-	$name = (string) urldecode(stripslashes(strip_tags($_POST['name'])));
-
-	if (empty($search)) die();
-
-	if (is_numeric($search)) :
-
-		$args = array(
-			'post_type'	=> 'product',
-			'post_status' => 'publish',
-			'posts_per_page' => 15,
-			'post__in' => array(0, $search)
-		);
-
-	else :
-
-		$args = array(
-			'post_type'	=> 'product',
-			'post_status' => 'publish',
-			'posts_per_page' => 15,
-			's' => $search
-		);
-
-	endif;
-
-	$posts = apply_filters('woocommerce_upsell_crosssell_search_products', get_posts( $args ));
-
-	if ($posts) : foreach ($posts as $post) :
-
-		$SKU = get_post_meta($post->ID, '_sku', true);
-
-		?>
-		<li rel="<?php echo $post->ID; ?>"><button type="button" name="Add" class="button add_crosssell" title="Add"><?php _e( 'Cross-sell', 'woocommerce' ); ?> &rarr;</button><button type="button" name="Add" class="button add_upsell" title="Add"><?php _e( 'Up-sell', 'woocommerce' ); ?> &rarr;</button><strong><?php echo $post->post_title; ?></strong> &ndash; #<?php echo $post->ID; ?> <?php if (isset($SKU) && $SKU) echo 'SKU: '.esc_attr( $SKU ); ?><input type="hidden" class="product_id" value="0" /></li>
-		<?php
-
-	endforeach; else :
-
-		?><li><?php _e( 'No products found', 'woocommerce' ); ?></li><?php
-
-	endif;
-
-	die();
-}
-
-add_action('wp_ajax_woocommerce_upsell_crosssell_search_products', 'woocommerce_upsell_crosssell_search_products');
 
 
 /**
@@ -1784,6 +1777,8 @@ function woocommerce_product_ordering() {
 	// real post?
 	if ( ! $post = get_post( $_POST['id'] ) )
 		die(-1);
+
+	header( 'Content-Type: application/json; charset=utf-8' );
 
 	$previd = isset( $_POST['previd'] ) ? $_POST['previd'] : false;
 	$nextid = isset( $_POST['nextid'] ) ? $_POST['nextid'] : false;

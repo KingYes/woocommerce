@@ -3,7 +3,7 @@
  * Plugin Name: WooCommerce
  * Plugin URI: http://www.woothemes.com/woocommerce/
  * Description: An e-commerce toolkit that helps you sell anything. Beautifully.
- * Version: 2.0.0-beta1
+ * Version: 2.0.0-beta3
  * Author: WooThemes
  * Author URI: http://woothemes.com
  * Requires at least: 3.5
@@ -154,7 +154,7 @@ class Woocommerce {
 	}
 
 	/**
-	 * __get function.
+	 * Auto-load in-accessible properties on demand.
 	 *
 	 * @access public
 	 * @param mixed $key
@@ -163,15 +163,11 @@ class Woocommerce {
 	public function __get( $key ) {
 
 		if ( 'payment_gateways' == $key ) {
-			$this->payment_gateways = new WC_Payment_Gateways();	// Payment gateways. Loads and stores payment methods
-			$this->payment_gateways->init();
-			return $this->payment_gateways;
+			return $this->payment_gateways();
 		}
 
 		elseif ( 'shipping' == $key ) {
-			$this->shipping = new WC_Shipping();					// Shipping class. loads and stores shipping methods
-			$this->shipping->init();
-			return $this->shipping;
+			return $this->shipping();
 		}
 
 		return false;
@@ -193,7 +189,7 @@ class Woocommerce {
 			$path = $this->plugin_path() . '/classes/gateways/' . trailingslashit( substr( str_replace( '_', '-', $class ), 11 ) );
 			$file = 'class-' . str_replace( '_', '-', $class ) . '.php';
 
-			if ( file_exists( $path . $file ) ) {
+			if ( is_readable( $path . $file ) ) {
 				include( $path . $file );
 				return;
 			}
@@ -203,7 +199,7 @@ class Woocommerce {
 			$path = $this->plugin_path() . '/classes/shipping/' . trailingslashit( substr( str_replace( '_', '-', $class ), 12 ) );
 			$file = 'class-' . str_replace( '_', '-', $class ) . '.php';
 
-			if ( file_exists( $path . $file ) ) {
+			if ( is_readable( $path . $file ) ) {
 				include( $path . $file );
 				return;
 			}
@@ -213,7 +209,7 @@ class Woocommerce {
 			$path = $this->plugin_path() . '/classes/shortcodes/';
 			$file = 'class-' . str_replace( '_', '-', $class ) . '.php';
 
-			if ( file_exists( $path . $file ) ) {
+			if ( is_readable( $path . $file ) ) {
 				include( $path . $file );
 				return;
 			}
@@ -224,7 +220,7 @@ class Woocommerce {
 			$path = $this->plugin_path() . '/classes/';
 			$file = 'class-' . str_replace( '_', '-', $class ) . '.php';
 
-			if ( file_exists( $path . $file ) ) {
+			if ( is_readable( $path . $file ) ) {
 				include( $path . $file );
 				return;
 			}
@@ -333,7 +329,7 @@ class Woocommerce {
 		include( 'classes/class-wc-tax.php' );					// Tax class
 		include( 'classes/class-wc-customer.php' ); 			// Customer class
 		include( 'classes/abstracts/abstract-wc-session.php' ); // Abstract for session implementations
-		include( 'classes/class-wc-session-transients.php' );   // Transients implementation of the session class
+		include( 'classes/class-wc-session-handler.php' );   	// WC Session class
 		include( 'classes/class-wc-shortcodes.php' );			// Shortcodes class
 	}
 
@@ -453,7 +449,7 @@ class Woocommerce {
 		if ( ! is_admin() || defined('DOING_AJAX') ) {
 
 			// Session class, handles session data for customers - can be overwritten if custom handler is needed
-			$session_class = apply_filters( 'woocommerce_session_handler', 'WC_Session_Transients' );
+			$session_class = apply_filters( 'woocommerce_session_handler', 'WC_Session_Handler' );
 			$this->session = new $session_class();
 
 			// Class instances
@@ -466,6 +462,7 @@ class Woocommerce {
 			$this->load_messages();
 
 			// Hooks
+			add_action( 'wp', array( $this, 'init_checkout' ) );
 			add_filter( 'template_include', array( $this, 'template_loader' ) );
 			add_filter( 'comments_template', array( $this, 'comments_template_loader' ) );
 			add_filter( 'wp_redirect', array( $this, 'redirect' ), 1, 2 );
@@ -474,6 +471,7 @@ class Woocommerce {
 			add_action( 'wp_head', array( $this, 'generator' ) );
 			add_action( 'wp_head', array( $this, 'wp_head' ) );
 			add_filter( 'body_class', array( $this, 'output_body_class' ) );
+			add_filter( 'post_class', array( $this, 'post_class' ), 20, 3 );
 			add_action( 'wp_footer', array( $this, 'output_inline_js' ), 25 );
 
 			// HTTPS urls with SSL on
@@ -534,6 +532,20 @@ class Woocommerce {
 			// Done, clear buffer and exit
 			ob_end_clean();
 			die('1');
+		}
+	}
+
+
+	/**
+	 * During checkout, ensure gateways and shipping classes are loaded so they can hook into the respective pages.
+	 *
+	 * @access public
+	 * @return void
+	 */
+	public function init_checkout() {
+		if ( is_checkout() || is_order_received_page() ) {
+			$this->payment_gateways();
+			$this->shipping();
 		}
 	}
 
@@ -820,7 +832,12 @@ class Woocommerce {
 					'delete_terms' 		=> 'delete_product_terms',
 					'assign_terms' 		=> 'assign_product_terms',
 	            ),
-	            'rewrite' 				=> array( 'slug' => $product_category_slug, 'with_front' => false, 'hierarchical' => true ),
+	            'rewrite' 				=> array(
+	            	'slug' => $product_category_slug,
+	            	'with_front' => false,
+	            	'hierarchical' => true,
+	            	//'ep_mask' => EP_CATEGORIES
+	            ),
 	        )
 	    );
 
@@ -1139,6 +1156,7 @@ class Woocommerce {
 
 		wp_register_script( 'wc-add-to-cart-variation', $frontend_script_path . 'add-to-cart-variation' . $suffix . '.js', array( 'jquery' ), $this->version, true );
 		wp_register_script( 'wc-single-product', $frontend_script_path . 'single-product' . $suffix . '.js', array( 'jquery' ), $this->version, true );
+		wp_register_script( 'jquery-cookie', $this->plugin_url() . '/assets/js/jquery-cookie/jquery.cookie' . $suffix . '.js', array( 'jquery' ), '1.3.1', true );
 
 		// Queue frontend scripts conditionally
 		if ( get_option( 'woocommerce_enable_ajax_add_to_cart' ) == 'yes' )
@@ -1154,8 +1172,9 @@ class Woocommerce {
 			wp_enqueue_script( 'wc-single-product' );
 
 		if ( $lightbox_en && ( is_product() || ( ! empty( $post->post_content ) && strstr( $post->post_content, '[product_page' ) ) ) ) {
-			wp_enqueue_script( 'fancybox', $this->plugin_url() . '/assets/js/fancybox/fancybox' . $suffix . '.js', array( 'jquery' ), $this->version, true );
-			wp_enqueue_style( 'woocommerce_fancybox_styles', $this->plugin_url() . '/assets/css/fancybox.css' );
+			wp_enqueue_script( 'prettyPhoto', $this->plugin_url() . '/assets/js/prettyPhoto/jquery.prettyPhoto' . $suffix . '.js', array( 'jquery' ), $this->version, true );
+			wp_enqueue_script( 'prettyPhoto-init', $this->plugin_url() . '/assets/js/prettyPhoto/jquery.prettyPhoto.init' . $suffix . '.js', array( 'jquery' ), $this->version, true );
+			wp_enqueue_style( 'woocommerce_prettyPhoto_css', $this->plugin_url() . '/assets/css/prettyPhoto.css' );
 		}
 
 		if ( $chosen_en && is_checkout() ) {
@@ -1164,7 +1183,7 @@ class Woocommerce {
 		}
 
 		// Global frontend scripts
-		wp_enqueue_script( 'woocommerce', $frontend_script_path . 'woocommerce' . $suffix . '.js', array( 'jquery', 'jquery-blockui' ), $this->version, true );
+		wp_enqueue_script( 'woocommerce', $frontend_script_path . 'woocommerce' . $suffix . '.js', array( 'jquery', 'jquery-cookie', 'jquery-blockui' ), $this->version, true );
 		wp_enqueue_script( 'jquery-placeholder' );
 
 		// Variables for JS scripts
@@ -1234,12 +1253,37 @@ class Woocommerce {
 	 * @return WC_Checkout
 	 */
 	public function checkout() {
-		if ( empty( $this->checkout ) ) {
+		if ( empty( $this->checkout ) )
 			$this->checkout = new WC_Checkout();
-		}
+
 		return $this->checkout;
 	}
 
+	/**
+	 * Get gateways class
+	 *
+	 * @access public
+	 * @return WC_Payment_Gateways
+	 */
+	public function payment_gateways() {
+		if ( empty( $this->payment_gateways ) )
+			$this->payment_gateways = new WC_Payment_Gateways();
+
+		return $this->payment_gateways;
+	}
+
+	/**
+	 * Get shipping class
+	 *
+	 * @access public
+	 * @return WC_Shipping
+	 */
+	public function shipping() {
+		if ( empty( $this->shipping ) )
+			$this->shipping = new WC_Shipping();
+
+		return $this->shipping;
+	}
 
 	/**
 	 * Get Logging Class.
@@ -1250,7 +1294,6 @@ class Woocommerce {
 	public function logger() {
 		return new WC_Logger();
 	}
-
 
 	/**
 	 * Get Validation Class.
@@ -1273,7 +1316,6 @@ class Woocommerce {
 		$this->mailer();
 		do_action( current_filter() . '_notification', $args );
 	}
-
 
 	/**
 	 * Email Class.
@@ -1746,10 +1788,13 @@ class Woocommerce {
 	 */
 	public function cart_has_contents_cookie( $set ) {
 		if ( ! headers_sent() ) {
-			if ( $set )
+			if ( $set ) {
 				setcookie( "woocommerce_items_in_cart", "1", 0, COOKIEPATH, COOKIE_DOMAIN, false );
-			else
+				setcookie( "woocommerce_cart_hash", md5( json_encode( $this->cart->get_cart() ) ), 0, COOKIEPATH, COOKIE_DOMAIN, false );
+			} else {
 				setcookie( "woocommerce_items_in_cart", "0", time() - 3600, COOKIEPATH, COOKIE_DOMAIN, false );
+				setcookie( "woocommerce_cart_hash", "0", time() - 3600, COOKIEPATH, COOKIE_DOMAIN, false );
+			}
 		}
 	}
 
@@ -1798,6 +1843,7 @@ class Woocommerce {
 			'wc_hidden_product_ids',
 			'wc_hidden_product_ids_search',
 			'wc_attribute_taxonomies',
+			'wc_term_counts'
 		);
 
 		foreach( $transients_to_clear as $transient ) {
@@ -1815,6 +1861,7 @@ class Woocommerce {
 			'wc_product_children_ids_',
 			'wc_product_total_stock_',
 			'wc_average_rating_',
+			'wc_rating_count_',
 			'woocommerce_product_type_', // No longer used
 			'wc_product_type_', // No longer used
 		);
@@ -1863,6 +1910,33 @@ class Woocommerce {
 		if ( is_singular('product') ) {
 			$key = array_search( 'singular', $classes );
 			if ( $key !== false ) unset( $classes[$key] );
+		}
+
+		return $classes;
+	}
+
+	/** Post Classes **********************************************************/
+
+	/**
+	 * Adds extra post classes for products
+	 *
+	 * @access public
+	 * @param array $classes
+	 * @param string|array $class
+	 * @param int $post_id
+	 * @return array
+	 */
+	public function post_class( $classes, $class, $post_id ) {
+		$product = get_product( $post_id );
+
+		if ( $product ) {
+			if ( $product->is_on_sale() ) {
+				$classes[] = 'sale';
+			}
+			if ( $product->is_featured() ) {
+				$classes[] = 'featured';
+			}
+			$classes[] = $product->stock_status;
 		}
 
 		return $classes;

@@ -28,6 +28,7 @@ class WC_Gateway_COD extends WC_Payment_Gateway {
 		$this->has_fields   = false;
 
 		// Load the settings
+		$this->init_form_fields();
 		$this->init_settings();
 
 		// Get settings
@@ -86,13 +87,14 @@ class WC_Gateway_COD extends WC_Payment_Gateway {
 				'title' => __( 'Title', 'woocommerce' ),
 				'type' => 'text',
 				'description' => __( 'Payment method title that the customer will see on your website.', 'woocommerce' ),
-				'default' => __( 'Cash on Delivery', 'woocommerce' )
+				'default' => __( 'Cash on Delivery', 'woocommerce' ),
+				'desc_tip'      => true,
 			),
 			'description' => array(
 				'title' => __( 'Description', 'woocommerce' ),
 				'type' => 'textarea',
 				'description' => __( 'Payment method description that the customer will see on your website.', 'woocommerce' ),
-				'default' => 'Pay with cash upon delivery.'
+				'default' => 'Pay with cash upon delivery.',
 			),
 			'instructions' => array(
 				'title' => __( 'Instructions', 'woocommerce' ),
@@ -107,7 +109,8 @@ class WC_Gateway_COD extends WC_Payment_Gateway {
 				'css'			=> 'width: 450px;',
 				'default' 		=> '',
 				'description' 	=> __( 'If COD is only available for certain methods, set it up here. Leave blank to enable for all methods.', 'woocommerce' ),
-				'options'		=> $shipping_methods
+				'options'		=> $shipping_methods,
+				'desc_tip'      => true,
 			)
  	   );
     }

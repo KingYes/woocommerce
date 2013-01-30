@@ -35,6 +35,7 @@ class WC_Shipping_Free_Shipping extends WC_Shipping_Method {
     function init() {
 
 		// Load the settings.
+		$this->init_form_fields();
 		$this->init_settings();
 
 		// Define user set variables
@@ -80,7 +81,8 @@ class WC_Shipping_Free_Shipping extends WC_Shipping_Method {
 							'title' 		=> __( 'Method Title', 'woocommerce' ),
 							'type' 			=> 'text',
 							'description' 	=> __( 'This controls the title which the user sees during checkout.', 'woocommerce' ),
-							'default'		=> __( 'Free Shipping', 'woocommerce' )
+							'default'		=> __( 'Free Shipping', 'woocommerce' ),
+							'desc_tip'      => true,
 						),
 			'availability' => array(
 							'title' 		=> __( 'Method availability', 'woocommerce' ),
@@ -120,7 +122,9 @@ class WC_Shipping_Free_Shipping extends WC_Shipping_Method {
 								'min'	=> '0'
 							),
 							'description' 	=> __( 'Users will need to spend this amount to get free shipping (if enabled above).', 'woocommerce' ),
-							'default' 		=> '0'
+							'default' 		=> '0',
+							'desc_tip'      => true,
+							'placeholder'	=> '0.00'
 						)
 			);
 

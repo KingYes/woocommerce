@@ -50,7 +50,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 					<?php endif; ?>
 				</td>
 				<td class="data" rowspan="2">
-					<table cellspacing="0" cellpadding="0">
+					<table cellspacing="0" cellpadding="0" class="data_table">
 						<?php if ( get_option( 'woocommerce_manage_stock' ) == 'yes' ) : ?>
 							<tr>
 								<td>
@@ -63,11 +63,11 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 						<tr>
 							<td>
-								<label><?php _e( 'Price:', 'woocommerce' ); ?></label>
-								<input type="number" size="5" name="variable_regular_price[<?php echo $loop; ?>]" value="<?php if ( isset( $_regular_price ) ) echo esc_attr( $_regular_price ); ?>" step="any" min="0" />
+								<label><?php echo __( 'Regular Price:', 'woocommerce' ) . ' ('.get_woocommerce_currency_symbol().')'; ?></label>
+								<input type="number" size="5" name="variable_regular_price[<?php echo $loop; ?>]" value="<?php if ( isset( $_regular_price ) ) echo esc_attr( $_regular_price ); ?>" step="any" min="0" placeholder="<?php _e( 'Enter a price for this variation (required)', 'woocommerce' ); ?>" />
 							</td>
 							<td>
-								<label><?php _e( 'Sale Price:', 'woocommerce' ); ?> <a href="#" class="sale_schedule"><?php _e( 'Schedule', 'woocommerce' ); ?></a><a href="#" class="cancel_sale_schedule" style="display:none"><?php _e( 'Cancel schedule', 'woocommerce' ); ?></a></label>
+								<label><?php echo __( 'Sale Price:', 'woocommerce' ) . ' ('.get_woocommerce_currency_symbol().')'; ?> <a href="#" class="sale_schedule"><?php _e( 'Schedule', 'woocommerce' ); ?></a><a href="#" class="cancel_sale_schedule" style="display:none"><?php _e( 'Cancel schedule', 'woocommerce' ); ?></a></label>
 								<input type="number" size="5" name="variable_sale_price[<?php echo $loop; ?>]" value="<?php if ( isset( $_sale_price ) ) echo esc_attr( $_sale_price ); ?>" step="any" min="0" />
 							</td>
 						</tr>
@@ -120,11 +120,13 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 								echo wp_dropdown_categories( $args );
 							?></td>
 							<td>
+								<?php if ( get_option( 'woocommerce_calc_taxes' ) == 'yes' ) : ?>
 								<label><?php _e( 'Tax class:', 'woocommerce' ); ?></label>
 								<select name="variable_tax_class[<?php echo $loop; ?>]"><?php
 									foreach ( $parent_data['tax_class_options'] as $key => $value )
 										echo '<option value="' . esc_attr( $key ) . '" ' . selected( $key, $_tax_class, false ) . '>' . esc_html( $value ) . '</option>';
 								?></select>
+								<?php endif; ?>
 							</td>
 						</tr>
 						<tr class="show_if_variation_downloadable">
@@ -150,7 +152,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 								</div>
 							</td>
 						</tr>
-						<?php do_action( 'woocommerce_product_after_variable_attributes', $loop, $variation_data ); ?>
+						<?php do_action( 'woocommerce_product_after_variable_attributes', $loop, $variation_data, $variation ); ?>
 					</table>
 				</td>
 			</tr>
@@ -165,7 +167,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 					<label><input type="checkbox" class="checkbox variable_is_virtual" name="variable_is_virtual[<?php echo $loop; ?>]" <?php checked( isset( $_virtual ) ? $_virtual : '', 'yes' ); ?> /> <?php _e( 'Virtual', 'woocommerce' ); ?> <a class="tips" data-tip="<?php _e( 'Enable this option if a product is not shipped or there is no shipping cost', 'woocommerce' ); ?>" href="#">[?]</a></label>
 
-					<?php do_action( 'woocommerce_variation_options', $loop, $variation_data ); ?>
+					<?php do_action( 'woocommerce_variation_options', $loop, $variation_data, $variation ); ?>
 				</td>
 			</tr>
 		</tbody>

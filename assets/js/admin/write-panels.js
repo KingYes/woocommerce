@@ -84,7 +84,7 @@ jQuery( function($){
 		$('#catalog-visibility-select').slideUp('fast');
 		$('#catalog-visibility .edit-catalog-visibility').show();
 
-		var current_visibility = $('#current_visibilty').val();
+		var current_visibility = $('#current_visibility').val();
 		var current_featured = $('#current_featured').val();
 
 		$('input[name=_visibility]').removeAttr('checked');
@@ -350,19 +350,21 @@ jQuery( function($){
 
 			$.post( woocommerce_writepanel_params.ajax_url, data, function( response ) {
 
-				result = jQuery.parseJSON( response );
+				if ( response ) {
 
-				$items.each( function() {
-					var $row = $(this);
-					var item_id = $row.find('input.order_item_id').val();
+					$items.each( function() {
+						var $row = $(this);
+						var item_id = $row.find('input.order_item_id').val();
 
-					$row.find('input.line_tax').val( result['item_taxes'][ item_id ]['line_tax'] ).change();
-					$row.find('input.line_subtotal_tax').val( result['item_taxes'][ item_id ]['line_subtotal_tax'] ).change();
-					$('#tax_rows').empty().append( result['tax_row_html'] );
-				} );
+						$row.find('input.line_tax').val( response['item_taxes'][ item_id ]['line_tax'] ).change();
+						$row.find('input.line_subtotal_tax').val( response['item_taxes'][ item_id ]['line_subtotal_tax'] ).change();
+						$('#tax_rows').empty().append( response['tax_row_html'] );
+					} );
 
-				$('#_order_tax').val( result['item_tax'] ).change();
-				$('#_order_shipping_tax').val( result['shipping_tax'] ).change();
+					$('#_order_tax').val( response['item_tax'] ).change();
+					$('#_order_shipping_tax').val( response['shipping_tax'] ).change();
+
+				}
 
 				$('.woocommerce_order_items_wrapper').unblock();
 			});
@@ -740,7 +742,7 @@ jQuery( function($){
 				data: data,
 				type: 'POST',
 				success: function( response ) {
-					var info = jQuery.parseJSON(response);
+					var info = response;
 
 					if (info) {
 						$('input#_billing_first_name').val( info.billing_first_name );
@@ -790,7 +792,7 @@ jQuery( function($){
 				data: data,
 				type: 'POST',
 				success: function( response ) {
-					var info = jQuery.parseJSON(response);
+					var info = response;
 
 					if (info) {
 						$('input#_shipping_first_name').val( info.shipping_first_name );
@@ -851,10 +853,11 @@ jQuery( function($){
 	});
 
 	// Delete a tax row
-	$('a.delete_tax_row').click(function(){
-		$tax_row = $(this).closest('.tax_row');
+	$('#tax_rows').on('click','a.delete_tax_row',function(){
 
-		var tax_row_id = $tax_row.attr( 'data-order_item_id' )
+		var $tax_row = $(this).closest('.tax_row');
+
+		var tax_row_id = $tax_row.attr( 'data-order_item_id' );
 
 		var data = {
 			tax_row_id: tax_row_id,
@@ -928,15 +931,7 @@ jQuery( function($){
 			$('.show_if_virtual').show();
 		}
 
-		if ( product_type == 'simple' ) {
-			$('.show_if_simple').show();
-		} else if ( product_type == 'variable' ) {
-			$('.show_if_variable').show();
-		} else if ( product_type == 'grouped' ) {
-			$('.show_if_grouped').show();
-		} else if ( product_type == 'external' ) {
-			$('.show_if_external').show();
-		}
+                 $('.show_if_'+product_type).show();    
 
 		// Hide rules
 		if ( is_downloadable ) {
@@ -946,15 +941,7 @@ jQuery( function($){
 			$('.hide_if_virtual').hide();
 		}
 
-		if ( product_type == 'simple' ) {
-			$('.hide_if_simple').hide();
-		} else if ( product_type == 'variable' ) {
-			$('.hide_if_variable').hide();
-		} else if ( product_type == 'grouped' ) {
-			$('.hide_if_grouped').hide();
-		} else if ( product_type == 'external' ) {
-			$('.hide_if_external').hide();
-		}
+		$('.hide_if_'+product_type).hide();
 	}
 
 
@@ -1226,14 +1213,12 @@ jQuery( function($){
 
 				$.post( woocommerce_writepanel_params.ajax_url, data, function( response ) {
 
-					result = jQuery.parseJSON( response );
-
-					if ( result.error ) {
+					if ( response.error ) {
 						// Error
-						alert( result.error );
-					} else if ( result.slug ) {
+						alert( response.error );
+					} else if ( response.slug ) {
 						// Success
-						$wrapper.find('select.attribute_values').append('<option value="' + result.slug + '" selected="selected">' + result.name + '</option>');
+						$wrapper.find('select.attribute_values').append('<option value="' + response.slug + '" selected="selected">' + response.name + '</option>');
 						$wrapper.find('select.attribute_values').trigger("liszt:updated");
 					}
 

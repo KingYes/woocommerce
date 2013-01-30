@@ -54,8 +54,8 @@ if ( ! is_admin() || defined('DOING_AJAX') ) {
 	 * @see woocommerce_taxonomy_archive_description()
 	 * @see woocommerce_product_archive_description()
 	 */
-	add_action( 'woocommerce_taxonomy_archive_description', 'woocommerce_taxonomy_archive_description', 10 );
-	add_action( 'woocommerce_product_archive_description', 'woocommerce_product_archive_description', 10 );
+	add_action( 'woocommerce_archive_description', 'woocommerce_taxonomy_archive_description', 10 );
+	add_action( 'woocommerce_archive_description', 'woocommerce_product_archive_description', 10 );
 
 	/**
 	 * Products Loop
@@ -79,6 +79,7 @@ if ( ! is_admin() || defined('DOING_AJAX') ) {
 	add_action( 'woocommerce_after_shop_loop_item', 'woocommerce_template_loop_add_to_cart', 10 );
 	add_action( 'woocommerce_before_shop_loop_item_title', 'woocommerce_template_loop_product_thumbnail', 10 );
 	add_action( 'woocommerce_after_shop_loop_item_title', 'woocommerce_template_loop_price', 10 );
+	add_action( 'woocommerce_after_shop_loop_item_title', 'woocommerce_template_loop_rating', 5 );
 
 	/**
 	 * Subcategories
@@ -240,13 +241,6 @@ add_action( 'get_header', 'woocommerce_clear_cart_after_payment' );
  * @see woocommerce_disable_admin_bar()
  */
 add_filter( 'show_admin_bar', 'woocommerce_disable_admin_bar', 10, 1 );
-
-/**
- * Catalog sorting/ordering
- *
- * @see woocommerce_update_catalog_ordering()
- */
-add_action( 'init', 'woocommerce_update_catalog_ordering' );
 
 /**
  * Cart Actions

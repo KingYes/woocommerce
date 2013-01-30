@@ -170,27 +170,31 @@ function woocommerce_product_data_box() {
 
 			echo '</div>';
 
-			echo '<div class="options_group show_if_simple show_if_external show_if_variable">';
+			if ( get_option( 'woocommerce_calc_taxes' ) == 'yes' ) {
 
-				// Tax
-				woocommerce_wp_select( array( 'id' => '_tax_status', 'label' => __( 'Tax Status', 'woocommerce' ), 'options' => array(
-					'taxable' 	=> __( 'Taxable', 'woocommerce' ),
-					'shipping' 	=> __( 'Shipping only', 'woocommerce' ),
-					'none' 		=> __( 'None', 'woocommerce' )
-				) ) );
+				echo '<div class="options_group show_if_simple show_if_external show_if_variable">';
 
-				$tax_classes = array_filter( array_map( 'trim', explode( "\n", get_option( 'woocommerce_tax_classes' ) ) ) );
-				$classes_options = array();
-				$classes_options[''] = __( 'Standard', 'woocommerce' );
-	    		if ( $tax_classes )
-	    			foreach ( $tax_classes as $class )
-	    				$classes_options[ sanitize_title( $class ) ] = esc_html( $class );
+					// Tax
+					woocommerce_wp_select( array( 'id' => '_tax_status', 'label' => __( 'Tax Status', 'woocommerce' ), 'options' => array(
+						'taxable' 	=> __( 'Taxable', 'woocommerce' ),
+						'shipping' 	=> __( 'Shipping only', 'woocommerce' ),
+						'none' 		=> __( 'None', 'woocommerce' )
+					) ) );
 
-				woocommerce_wp_select( array( 'id' => '_tax_class', 'label' => __( 'Tax Class', 'woocommerce' ), 'options' => $classes_options ) );
+					$tax_classes = array_filter( array_map( 'trim', explode( "\n", get_option( 'woocommerce_tax_classes' ) ) ) );
+					$classes_options = array();
+					$classes_options[''] = __( 'Standard', 'woocommerce' );
+		    		if ( $tax_classes )
+		    			foreach ( $tax_classes as $class )
+		    				$classes_options[ sanitize_title( $class ) ] = esc_html( $class );
 
-				do_action( 'woocommerce_product_options_tax' );
+					woocommerce_wp_select( array( 'id' => '_tax_class', 'label' => __( 'Tax Class', 'woocommerce' ), 'options' => $classes_options ) );
 
-			echo '</div>';
+					do_action( 'woocommerce_product_options_tax' );
+
+				echo '</div>';
+
+			}
 
 			do_action( 'woocommerce_product_options_general_product_data' );
 			?>
@@ -380,7 +384,7 @@ function woocommerce_product_data_box() {
 							        					$all_terms = get_terms( $attribute_taxonomy_name, 'orderby=name&hide_empty=0' );
 						        						if ( $all_terms ) {
 							        						foreach ( $all_terms as $term ) {
-							        							$has_term = has_term( $term->slug, $attribute_taxonomy_name, $thepostid ) ? 1 : 0;
+							        							$has_term = has_term( $term->term_id, $attribute_taxonomy_name, $thepostid ) ? 1 : 0;
 							        							echo '<option value="' . $term->slug . '" ' . selected( $has_term, 1, false ) . '>' . $term->name . '</option>';
 															}
 														}
@@ -404,6 +408,7 @@ function woocommerce_product_data_box() {
 
 													?>" placeholder="<?php _e( 'Pipe separate terms', 'woocommerce' ); ?>" />
 												<?php endif; ?>
+												<?php do_action( 'woocommerce_product_option_terms', $tax, $i ); ?>
 											</td>
 										</tr>
 										<tr>
@@ -498,19 +503,15 @@ function woocommerce_product_data_box() {
 			<p class="form-field"><label for="upsell_ids"><?php _e( 'Up-Sells', 'woocommerce' ); ?></label>
 			<select id="upsell_ids" name="upsell_ids[]" class="ajax_chosen_select_products" multiple="multiple" data-placeholder="<?php _e( 'Search for a product&hellip;', 'woocommerce' ); ?>">
 				<?php
-					$product_ids = array_map( 'absint', get_post_meta( $post->ID, '_upsell_ids', true ) );
+					$upsell_ids = get_post_meta( $post->ID, '_upsell_ids', true );
+					$product_ids = ! empty( $upsell_ids ) ? array_map( 'absint',  $upsell_ids ) : null;
 					if ( $product_ids ) {
 						foreach ( $product_ids as $product_id ) {
-							$title 	= get_the_title( $product_id );
-							$sku 	= get_post_meta( $product_id, '_sku', true );
 
-							if ( ! $title )
-								continue;
+							$product      = get_product( $product_id );
+							$product_name = woocommerce_get_formatted_product_name( $product );
 
-							if ( ! empty( $sku ) )
-								$sku = ' (SKU: ' . $sku . ')';
-
-							echo '<option value="' . esc_attr( $product_id ) . '" selected="selected">' . esc_html( $title . $sku ) . '</option>';
+							echo '<option value="' . esc_attr( $product_id ) . '" selected="selected">' . esc_html( $product_name ) . '</option>';
 						}
 					}
 				?>
@@ -519,19 +520,15 @@ function woocommerce_product_data_box() {
 			<p class="form-field"><label for="crosssell_ids"><?php _e( 'Cross-Sells', 'woocommerce' ); ?></label>
 			<select id="crosssell_ids" name="crosssell_ids[]" class="ajax_chosen_select_products" multiple="multiple" data-placeholder="<?php _e( 'Search for a product&hellip;', 'woocommerce' ); ?>">
 				<?php
-					$product_ids = array_map( 'absint', get_post_meta( $post->ID, '_crosssell_ids', true ) );
+					$crosssell_ids = get_post_meta( $post->ID, '_crosssell_ids', true );
+					$product_ids = ! empty( $crosssell_ids ) ? array_map( 'absint',  $crosssell_ids ) : null;
 					if ( $product_ids ) {
 						foreach ( $product_ids as $product_id ) {
-							$title 	= get_the_title( $product_id );
-							$sku 	= get_post_meta( $product_id, '_sku', true );
 
-							if ( ! $title )
-								continue;
+							$product      = get_product( $product_id );
+							$product_name = woocommerce_get_formatted_product_name( $product );
 
-							if ( ! empty( $sku ) )
-								$sku = ' (SKU: ' . $sku . ')';
-
-							echo '<option value="' . esc_attr( $product_id ) . '" selected="selected">' . esc_html( $title . $sku ) . '</option>';
+							echo '<option value="' . esc_attr( $product_id ) . '" selected="selected">' . esc_html( $product_name ) . '</option>';
 						}
 					}
 				?>
@@ -1047,7 +1044,7 @@ function woocommerce_product_data_visibility() {
 
 		<div id="catalog-visibility-select" class="hide-if-js">
 
-			<input type="hidden" name="current_visibilty" id="current_visibilty" value="<?php echo esc_attr( $current_visibility ); ?>" />
+			<input type="hidden" name="current_visibility" id="current_visibility" value="<?php echo esc_attr( $current_visibility ); ?>" />
 			<input type="hidden" name="current_featured" id="current_featured" value="<?php echo esc_attr( $current_featured ); ?>" />
 
 			<?php

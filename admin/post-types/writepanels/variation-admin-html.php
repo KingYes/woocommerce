@@ -17,19 +17,25 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 				$variation_selected_value = isset( $variation_data[ 'attribute_' . sanitize_title( $attribute['name'] ) ][0] ) ? $variation_data[ 'attribute_' . sanitize_title( $attribute['name'] ) ][0] : '';
 
 				// Name will be something like attribute_pa_color
-				echo '<select name="attribute_' . sanitize_title( $attribute['name'] ) . '[' . $loop . ']"><option value="">' . __( 'Any', 'woocommerce' ) . ' ' . esc_html( $woocommerce->attribute_label( $attribute['name'] ) ) . '&hellip;</option>';
+				echo '<select name="attribute_' . sanitize_title( $attribute['name'] ) . '[' . $loop . ']"><option value="">' . __( 'Any', 'woocommerce' ) . ' ' . esc_html( $woocommerce->get_helper( 'attribute' )->attribute_label( $attribute['name'] ) ) . '&hellip;</option>';
 
 				// Get terms for attribute taxonomy or value if its a custom attribute
 				if ( $attribute['is_taxonomy'] ) {
+
 					$post_terms = wp_get_post_terms( $parent_data['id'], $attribute['name'] );
+
 					foreach ( $post_terms as $term ) {
 						echo '<option ' . selected( $variation_selected_value, $term->slug, false ) . ' value="' . esc_attr( $term->slug ) . '">' . apply_filters( 'woocommerce_variation_option_name', esc_html( $term->name ) ) . '</option>';
 					}
+
 				} else {
-					$options = explode( '|', $attribute['value'] );
+
+					$options = array_map( 'trim', explode( '|', $attribute['value'] ) );
+
 					foreach ( $options as $option ) {
-						echo '<option ' . selected( $variation_selected_value, $option, false ) . ' value="' . esc_attr( $option ) . '">' . ucfirst( apply_filters( 'woocommerce_variation_option_name', esc_html( $option ) ) ) . '</option>';
+						echo '<option ' . selected( sanitize_title( $variation_selected_value ), sanitize_title( $option ), false ) . ' value="' . esc_attr( sanitize_title( $option ) ) . '">' . esc_html( apply_filters( 'woocommerce_variation_option_name', $option ) ) . '</option>';
 					}
+
 				}
 
 				echo '</select>';
@@ -54,7 +60,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 						<?php if ( get_option( 'woocommerce_manage_stock' ) == 'yes' ) : ?>
 							<tr>
 								<td>
-									<label><?php _e( 'Stock Qty:', 'woocommerce' ); ?> <a class="tips" data-tip="<?php _e( 'Enter a quantity to enable stock management for this variation, or leave blank to use the variable product stock options.', 'woocommerce' ); ?>" href="#">[?]</a></label>
+									<label><?php _e( 'Stock Qty:', 'woocommerce' ); ?> <a class="tips" data-tip="<?php _e( 'Enter a quantity to enable stock management at variation level, or leave blank to use the parent product\'s options.', 'woocommerce' ); ?>" href="#">[?]</a></label>
 									<input type="number" size="5" name="variable_stock[<?php echo $loop; ?>]" value="<?php if ( isset( $_stock ) ) echo esc_attr( $_stock ); ?>" step="any" />
 								</td>
 								<td>&nbsp;</td>
@@ -64,7 +70,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 						<tr>
 							<td>
 								<label><?php echo __( 'Regular Price:', 'woocommerce' ) . ' ('.get_woocommerce_currency_symbol().')'; ?></label>
-								<input type="number" size="5" name="variable_regular_price[<?php echo $loop; ?>]" value="<?php if ( isset( $_regular_price ) ) echo esc_attr( $_regular_price ); ?>" step="any" min="0" placeholder="<?php _e( 'Enter a price for this variation (required)', 'woocommerce' ); ?>" />
+								<input type="number" size="5" name="variable_regular_price[<?php echo $loop; ?>]" value="<?php if ( isset( $_regular_price ) ) echo esc_attr( $_regular_price ); ?>" step="any" min="0" placeholder="<?php _e( 'Variation price (required)', 'woocommerce' ); ?>" />
 							</td>
 							<td>
 								<label><?php echo __( 'Sale Price:', 'woocommerce' ) . ' ('.get_woocommerce_currency_symbol().')'; ?> <a href="#" class="sale_schedule"><?php _e( 'Schedule', 'woocommerce' ); ?></a><a href="#" class="cancel_sale_schedule" style="display:none"><?php _e( 'Cancel schedule', 'woocommerce' ); ?></a></label>
@@ -122,9 +128,11 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 							<td>
 								<?php if ( get_option( 'woocommerce_calc_taxes' ) == 'yes' ) : ?>
 								<label><?php _e( 'Tax class:', 'woocommerce' ); ?></label>
-								<select name="variable_tax_class[<?php echo $loop; ?>]"><?php
+								<select name="variable_tax_class[<?php echo $loop; ?>]">
+									<option value="parent" <?php selected( is_null( $_tax_class), true ); ?>><?php _e( 'Same as parent', 'woocommerce' ); ?></option>
+									<?php
 									foreach ( $parent_data['tax_class_options'] as $key => $value )
-										echo '<option value="' . esc_attr( $key ) . '" ' . selected( $key, $_tax_class, false ) . '>' . esc_html( $value ) . '</option>';
+										echo '<option value="' . esc_attr( $key ) . '" ' . selected( $key === $_tax_class, true, false ) . '>' . esc_html( $value ) . '</option>';
 								?></select>
 								<?php endif; ?>
 							</td>

@@ -228,6 +228,8 @@ jQuery( function($){
 		$row.find('input.line_total').val( total );
 		$row.find('input.line_subtotal_tax').val( tax );
 		$row.find('input.line_tax').val( total_tax );
+
+		$(this).trigger('quantity_changed');
 	});
 
 	// When subtotal is changed, update the unit costs
@@ -306,16 +308,24 @@ jQuery( function($){
 
 			var $items = $('#order_items_list').find('tr.item, tr.fee');
 
-			var country = $('#_shipping_country').val();
-			if (country) {
+			var shipping_country = $('#_shipping_country').val();
+			var billing_country = $('#_billing_country').val();
+
+			if (shipping_country) {
+				var country = shipping_country;
 				var state = $('#_shipping_state').val();
 				var postcode = $('#_shipping_postcode').val();
 				var city = $('#_shipping_city').val();
-			} else {
-				country = $('#_billing_country').val();
+			} else if(billing_country) {
+				var country = billing_country;
 				var state = $('#_billing_state').val();
 				var postcode = $('#_billing_postcode').val();
 				var city = $('#_billing_city').val();
+			} else {
+				var country = woocommerce_writepanel_params.base_country;
+				var state = '';
+				var postcode = '';
+				var city = '';
 			}
 
 			// Get items and values
@@ -394,25 +404,25 @@ jQuery( function($){
 			var line_totals 		= 0;
 			var cart_discount 		= 0;
 			var cart_tax 			= 0;
-			var order_shipping 		= accounting.unformat( $('#_order_shipping').val() );
-			var order_shipping_tax 	= accounting.unformat( $('#_order_shipping_tax').val() );
-			var order_discount		= accounting.unformat( $('#_order_discount').val() );
+			var order_shipping 		= $('#_order_shipping').val() || '0';
+			var order_shipping_tax 	= $('#_order_shipping_tax').val() || '0';
+			var order_discount		= $('#_order_discount').val() || '0';
 
-			if ( ! order_shipping ) order_shipping = 0;
-			if ( ! order_shipping_tax ) order_shipping_tax = 0;
-			if ( ! order_discount ) order_discount = 0;
+			order_shipping = accounting.unformat( order_shipping.replace(',', '.') );
+			order_shipping_tax = accounting.unformat( order_shipping_tax.replace(',', '.') );
+			order_discount = accounting.unformat( order_discount.replace(',', '.') );
 
 			$('#order_items_list tr.item').each(function(){
 
-				var line_subtotal 		= accounting.unformat( $(this).find('input.line_subtotal').val() );
-				var line_subtotal_tax 	= accounting.unformat( $(this).find('input.line_subtotal_tax').val() );
-				var line_total 			= accounting.unformat( $(this).find('input.line_total').val() );
-				var line_tax 			= accounting.unformat( $(this).find('input.line_tax').val() );
+				var line_subtotal 		= $(this).find('input.line_subtotal').val() || '0';
+				var line_subtotal_tax 	= $(this).find('input.line_subtotal_tax').val() || '0';
+				var line_total 			= $(this).find('input.line_total').val() || '0';
+				var line_tax 			= $(this).find('input.line_tax').val() || '0';
 
-				if ( ! line_subtotal ) line_subtotal = 0;
-				if ( ! line_subtotal_tax ) line_subtotal_tax = 0;
-				if ( ! line_total ) line_total = 0;
-				if ( ! line_tax ) line_tax = 0;
+				line_subtotal = accounting.unformat( line_subtotal.replace(',', '.') );
+				line_subtotal_tax = accounting.unformat( line_subtotal_tax.replace(',', '.') );
+				line_total = accounting.unformat( line_total.replace(',', '.') );
+				line_tax = accounting.unformat( line_tax.replace(',', '.') );
 
 				line_subtotals = line_subtotals + line_subtotal;
 				line_subtotal_taxes = line_subtotal_taxes + line_subtotal_tax;
@@ -436,11 +446,11 @@ jQuery( function($){
 			cart_discount = accounting.toFixed( cart_discount, 2 );
 
 			$('#order_items_list tr.fee').each(function(){
-				var line_total 			= accounting.unformat( $(this).find('input.line_total').val() );
-				var line_tax 			= accounting.unformat( $(this).find('input.line_tax').val() );
+				var line_total 			= $(this).find('input.line_total').val() || '0';;
+				var line_tax 			= $(this).find('input.line_tax').val() || '0';;
 
-				if ( ! line_total ) line_total = 0;
-				if ( ! line_tax ) line_tax = 0;
+				line_total = accounting.unformat( line_total.replace(',', '.') );
+				line_tax = accounting.unformat( line_tax.replace(',', '.') );
 
 				line_totals = line_totals + line_total;
 
@@ -453,7 +463,7 @@ jQuery( function($){
 
 			// Tax
 			if (woocommerce_writepanel_params.round_at_subtotal=='yes') {
-				cart_tax = accounting.toFixed( cart_tax, 2 );
+				cart_tax = parseFloat( accounting.toFixed( cart_tax, 2 ) );
 			}
 
 			// Total
@@ -618,6 +628,11 @@ jQuery( function($){
 
 		} );
 
+		if ( item_ids.length == 0 ) {
+			alert( woocommerce_writepanel_params.i18n_select_items );
+			return;
+		}
+
 		if ( action == 'delete' ) {
 
 			var answer = confirm( woocommerce_writepanel_params.remove_item_notice );
@@ -638,7 +653,7 @@ jQuery( function($){
 					type: 'POST',
 					success: function( response ) {
 						$(selected_rows).each( function() {
-							$(this).closest('tr.item, tr.fee').hide();
+							$(this).closest('tr.item, tr.fee').remove();
 						} );
 						$('table.woocommerce_order_items').unblock();
 					}
@@ -920,8 +935,16 @@ jQuery( function($){
 		var is_downloadable = $('input#_downloadable:checked').size();
 
 		// Hide/Show all with rules
-		$('.hide_if_simple, .hide_if_grouped, .hide_if_variable, .hide_if_external, .hide_if_downloadable, .hide_if_virtual').show();
-		$('.show_if_simple, .show_if_grouped, .show_if_variable, .show_if_external, .show_if_downloadable, .show_if_virtual').hide();
+		var hide_classes = '.hide_if_downloadable, .hide_if_virtual';
+		var show_classes = '.show_if_downloadable, .show_if_virtual, .show_if_external';
+
+		$.each( woocommerce_writepanel_params.product_types, function( index, value ) {
+			hide_classes = hide_classes + ', .hide_if_' + value;
+			show_classes = show_classes + ', .show_if_' + value;
+		} );
+
+		$( hide_classes ).show();
+		$( show_classes ).hide();
 
 		// Shows rules
 		if ( is_downloadable ) {
@@ -931,7 +954,7 @@ jQuery( function($){
 			$('.show_if_virtual').show();
 		}
 
-                 $('.show_if_'+product_type).show();    
+        $('.show_if_' + product_type).show();
 
 		// Hide rules
 		if ( is_downloadable ) {
@@ -941,7 +964,9 @@ jQuery( function($){
 			$('.hide_if_virtual').hide();
 		}
 
-		$('.hide_if_'+product_type).hide();
+		$('.hide_if_' + product_type).hide();
+
+		$('input#_manage_stock').change();
 	}
 
 
@@ -1113,13 +1138,13 @@ jQuery( function($){
 								</tr>\
 								<tr>\
 									<td>\
-										<label><input type="checkbox" class="checkbox" checked="checked" name="attribute_visibility[' + size + ']" value="1" /> ' + woocommerce_writepanel_params.visible_label + '</label>\
+										<label><input type="checkbox" class="checkbox" ' + ( woocommerce_writepanel_params.default_attribute_visibility ? 'checked="checked"' : '' ) + ' name="attribute_visibility[' + size + ']" value="1" /> ' + woocommerce_writepanel_params.visible_label + '</label>\
 									</td>\
 								</tr>\
 								<tr>\
 									<td>\
 										<div class="enable_variation show_if_variable" ' + enable_variation + '>\
-										<label><input type="checkbox" class="checkbox" name="attribute_variation[' + size + ']" value="1" /> ' + woocommerce_writepanel_params.used_for_variations_label + '</label>\
+										<label><input type="checkbox" class="checkbox" ' + ( woocommerce_writepanel_params.default_attribute_variation ? 'checked="checked"' : '' ) + ' name="attribute_variation[' + size + ']" value="1" /> ' + woocommerce_writepanel_params.used_for_variations_label + '</label>\
 										</div>\
 									</td>\
 								</tr>\
@@ -1266,12 +1291,15 @@ jQuery( function($){
 
 	// Uploading files
 	var downloadable_file_frame;
+	var file_path_field;
+	var file_paths;
 
 	jQuery(document).on( 'click', '.upload_file_button', function( event ){
 
 		var $el = $(this);
-		var $file_path_field = $el.parent().find('.file_paths');
-		var file_paths = $file_path_field.val();
+
+		file_path_field = $el.parent().find('.file_paths');
+		file_paths      = file_path_field.val();
 
 		event.preventDefault();
 
@@ -1320,7 +1348,7 @@ jQuery( function($){
 
 			} );
 
-			$file_path_field.val( file_paths );
+			file_path_field.val( file_paths );
 		});
 
 		// Set post to 0 and set our custom type
@@ -1335,8 +1363,3 @@ jQuery( function($){
 	});
 
 });
-
-/*!
- * accounting.js v0.3.2, copyright 2011 Joss Crowcroft, MIT license, http://josscrowcroft.github.com/accounting.js
- */
-(function(p,z){function q(a){return!!(""===a||a&&a.charCodeAt&&a.substr)}function m(a){return u?u(a):"[object Array]"===v.call(a)}function r(a){return"[object Object]"===v.call(a)}function s(a,b){var d,a=a||{},b=b||{};for(d in b)b.hasOwnProperty(d)&&null==a[d]&&(a[d]=b[d]);return a}function j(a,b,d){var c=[],e,h;if(!a)return c;if(w&&a.map===w)return a.map(b,d);for(e=0,h=a.length;e<h;e++)c[e]=b.call(d,a[e],e,a);return c}function n(a,b){a=Math.round(Math.abs(a));return isNaN(a)?b:a}function x(a){var b=c.settings.currency.format;"function"===typeof a&&(a=a());return q(a)&&a.match("%v")?{pos:a,neg:a.replace("-","").replace("%v","-%v"),zero:a}:!a||!a.pos||!a.pos.match("%v")?!q(b)?b:c.settings.currency.format={pos:b,neg:b.replace("%v","-%v"),zero:b}:a}var c={version:"0.3.2",settings:{currency:{symbol:"$",format:"%s%v",decimal:".",thousand:",",precision:2,grouping:3},number:{precision:0,grouping:3,thousand:",",decimal:"."}}},w=Array.prototype.map,u=Array.isArray,v=Object.prototype.toString,o=c.unformat=c.parse=function(a,b){if(m(a))return j(a,function(a){return o(a,b)});a=a||0;if("number"===typeof a)return a;var b=b||".",c=RegExp("[^0-9-"+b+"]",["g"]),c=parseFloat((""+a).replace(/\((.*)\)/,"-$1").replace(c,"").replace(b,"."));return!isNaN(c)?c:0},y=c.toFixed=function(a,b){var b=n(b,c.settings.number.precision),d=Math.pow(10,b);return(Math.round(c.unformat(a)*d)/d).toFixed(b)},t=c.formatNumber=function(a,b,d,i){if(m(a))return j(a,function(a){return t(a,b,d,i)});var a=o(a),e=s(r(b)?b:{precision:b,thousand:d,decimal:i},c.settings.number),h=n(e.precision),f=0>a?"-":"",g=parseInt(y(Math.abs(a||0),h),10)+"",l=3<g.length?g.length%3:0;return f+(l?g.substr(0,l)+e.thousand:"")+g.substr(l).replace(/(\d{3})(?=\d)/g,"$1"+e.thousand)+(h?e.decimal+y(Math.abs(a),h).split(".")[1]:"")},A=c.formatMoney=function(a,b,d,i,e,h){if(m(a))return j(a,function(a){return A(a,b,d,i,e,h)});var a=o(a),f=s(r(b)?b:{symbol:b,precision:d,thousand:i,decimal:e,format:h},c.settings.currency),g=x(f.format);return(0<a?g.pos:0>a?g.neg:g.zero).replace("%s",f.symbol).replace("%v",t(Math.abs(a),n(f.precision),f.thousand,f.decimal))};c.formatColumn=function(a,b,d,i,e,h){if(!a)return[];var f=s(r(b)?b:{symbol:b,precision:d,thousand:i,decimal:e,format:h},c.settings.currency),g=x(f.format),l=g.pos.indexOf("%s")<g.pos.indexOf("%v")?!0:!1,k=0,a=j(a,function(a){if(m(a))return c.formatColumn(a,f);a=o(a);a=(0<a?g.pos:0>a?g.neg:g.zero).replace("%s",f.symbol).replace("%v",t(Math.abs(a),n(f.precision),f.thousand,f.decimal));if(a.length>k)k=a.length;return a});return j(a,function(a){return q(a)&&a.length<k?l?a.replace(f.symbol,f.symbol+Array(k-a.length+1).join(" ")):Array(k-a.length+1).join(" ")+a:a})};if("undefined"!==typeof exports){if("undefined"!==typeof module&&module.exports)exports=module.exports=c;exports.accounting=c}else"function"===typeof define&&define.amd?define([],function(){return c}):(c.noConflict=function(a){return function(){p.accounting=a;c.noConflict=z;return c}}(p.accounting),p.accounting=c)})(this);

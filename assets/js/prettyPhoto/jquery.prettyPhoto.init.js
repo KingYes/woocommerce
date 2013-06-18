@@ -7,15 +7,24 @@ $(document).ready(function() {
 	// Lightbox
 	$("a.zoom").prettyPhoto({
 		social_tools: false,
-		theme: 'pp_woocommerce'
+		theme: 'pp_woocommerce',
+		horizontal_padding: 20,
+		opacity: 0.2,
+		deeplinking: false
 	});
 	$("a.show_review_form").prettyPhoto({
 		social_tools: false,
-		theme: 'pp_woocommerce'
+		theme: 'pp_woocommerce',
+		horizontal_padding: 20,
+		opacity: 0.2,
+		deeplinking: false
 	});
 	$("a[rel^='prettyPhoto']").prettyPhoto({
 		social_tools: false,
-		theme: 'pp_woocommerce'
+		theme: 'pp_woocommerce',
+		horizontal_padding: 20,
+		opacity: 0.2,
+		deeplinking: false
 	});
 
 	// Open review form lightbox if accessed via anchor

@@ -25,28 +25,24 @@ function woocommerce_check_download_folder_protection() {
 	$downloads_url 		= $upload_dir['basedir'] . '/woocommerce_uploads';
 	$download_method	= get_option('woocommerce_file_download_method');
 
-	if ($download_method=='redirect') :
+	if ( $download_method == 'redirect' ) {
 
 		// Redirect method - don't protect
-		if (file_exists($downloads_url.'/.htaccess')) :
+		if ( file_exists( $downloads_url . '/.htaccess' ) )
 			unlink( $downloads_url . '/.htaccess' );
-		endif;
 
-		flush_rewrite_rules( true );
-
-	else :
+	} else {
 
 		// Force method - protect, add rules to the htaccess file
-		if (!file_exists($downloads_url.'/.htaccess')) :
-			if ($file_handle = @fopen( $downloads_url . '/.htaccess', 'w' )) :
-				fwrite($file_handle, 'deny from all');
-				fclose($file_handle);
-			endif;
-		endif;
+		if ( ! file_exists( $downloads_url . '/.htaccess' ) ) {
+			if ( $file_handle = @fopen( $downloads_url . '/.htaccess', 'w' ) ) {
+				fwrite( $file_handle, 'deny from all' );
+				fclose( $file_handle );
+			}
+		}
+	}
 
-		flush_rewrite_rules( true );
-
-	endif;
+	flush_rewrite_rules();
 }
 
 
@@ -85,7 +81,8 @@ function woocommerce_ms_protect_download_rewite_rules( $rewrite ) {
 function woocommerce_delete_post( $id ) {
 	global $woocommerce, $wpdb;
 
-	if ( ! current_user_can( 'delete_posts' ) ) return;
+	if ( ! current_user_can( 'delete_posts' ) )
+		return;
 
 	if ( $id > 0 ) {
 
@@ -94,17 +91,26 @@ function woocommerce_delete_post( $id ) {
 		switch( $post_type ) {
 			case 'product' :
 
-				if ( $children_products =& get_children( 'post_parent=' . $id . '&post_type=product_variation' ) )
-					if ( $children_products )
-						foreach ( $children_products as $child )
+				if ( $child_product_variations =& get_children( 'post_parent=' . $id . '&post_type=product_variation' ) )
+					if ( $child_product_variations )
+						foreach ( $child_product_variations as $child )
 							wp_delete_post( $child->ID, true );
 
-				$woocommerce->clear_product_transients();
+				if ( $child_products =& get_children( 'post_parent=' . $id . '&post_type=product' ) )
+					if ( $child_products )
+						foreach ( $child_products as $child ) {
+							$child_post = array();
+							$child_post['ID'] = $child->ID;
+							$child_post['post_parent'] = 0;
+							wp_update_post( $child_post );
+						}
+
+				$woocommerce->get_helper( 'transient' )->clear_product_transients();
 
 			break;
 			case 'product_variation' :
 
-				$woocommerce->clear_product_transients();
+				$woocommerce->get_helper( 'transient' )->clear_product_transients();
 
 			break;
 		}
@@ -129,7 +135,8 @@ function woocommerce_trash_post( $id ) {
 			$user_id = get_post_meta( $id, '_customer_user', true );
 
 			if ( $user_id > 0 ) {
-				delete_user_meta( $user_id, '_order_count' );
+				update_user_meta( $user_id, '_order_count', '' );
+				update_user_meta( $user_id, '_money_spent', '' );
 			}
 
 			delete_transient( 'woocommerce_processing_order_count' );
@@ -156,7 +163,8 @@ function woocommerce_untrash_post( $id ) {
 			$user_id = get_post_meta( $id, '_customer_user', true );
 
 			if ( $user_id > 0 ) {
-				delete_user_meta( $user_id, '_order_count' );
+				update_user_meta( $user_id, '_order_count', '' );
+				update_user_meta( $user_id, '_money_spent', '' );
 			}
 
 			delete_transient( 'woocommerce_processing_order_count' );
@@ -242,14 +250,14 @@ function woocommerce_preview_emails() {
 
 
 /**
- * Prevent non-admin access to backend
+ * Prevent any user who cannot 'edit_posts' (subscribers, customers etc) from accessing admin
  *
  * @access public
  * @return void
  */
 function woocommerce_prevent_admin_access() {
-	if ( get_option('woocommerce_lock_down_admin') == 'yes' && ! is_ajax() && ! ( current_user_can('edit_posts') || current_user_can('manage_woocommerce') ) ) {
-		wp_safe_redirect(get_permalink(woocommerce_get_page_id('myaccount')));
+	if ( apply_filters( 'woocommerce_prevent_admin_access', get_option( 'woocommerce_lock_down_admin', "yes" ) == "yes" ) && ! is_ajax() && ! ( current_user_can('edit_posts') || current_user_can('manage_woocommerce') ) ) {
+		wp_safe_redirect( get_permalink( woocommerce_get_page_id( 'myaccount' ) ) );
 		exit;
 	}
 }
@@ -312,7 +320,7 @@ function woocommerce_add_shortcode_button() {
  */
 function woocommerce_add_tinymce_lang( $arr ) {
 	global $woocommerce;
-    $arr[] = $woocommerce->plugin_path() . '/assets/js/admin/editor_plugin_lang.php';
+    $arr['WooCommerceShortcodes'] = $woocommerce->plugin_path() . '/assets/js/admin/editor_plugin_lang.php';
     return $arr;
 }
 
@@ -370,10 +378,10 @@ function woocommerce_refresh_mce( $ver ) {
  */
 function woocommerce_create_term( $term_id, $tt_id = '', $taxonomy = '' ) {
 
-	if ( ! $taxonomy == 'product_cat' && ! strstr( $taxonomy, 'pa_' ) )
+	if ( $taxonomy != 'product_cat' && ! taxonomy_is_product_attribute( $taxonomy ) )
 		return;
 
-	$meta_name = strstr( $taxonomy, 'pa_' ) ? 'order_' . esc_attr( $taxonomy ) : 'order';
+	$meta_name = taxonomy_is_product_attribute( $taxonomy ) ? 'order_' . esc_attr( $taxonomy ) : 'order';
 
 	update_woocommerce_term_meta( $term_id, $meta_name, 0 );
 }

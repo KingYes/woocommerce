@@ -25,7 +25,6 @@ function woocommerce_order_downloads_meta_box() {
 	<div class="order_download_permissions wc-metaboxes-wrapper">
 
 		<div class="wc-metaboxes">
-
 			<?php
 				$download_permissions = $wpdb->get_results( $wpdb->prepare( "
 					SELECT * FROM {$wpdb->prefix}woocommerce_downloadable_product_permissions
@@ -33,15 +32,16 @@ function woocommerce_order_downloads_meta_box() {
 				", $post->ID ) );
 
 				$product = null;
+				$loop    = 0;
 				if ( $download_permissions && sizeof( $download_permissions ) > 0 ) foreach ( $download_permissions as $download ) {
 
 					if ( ! $product || $product->id != $download->product_id ) {
 						$product = get_product( absint( $download->product_id ) );
-						$file_count = $loop = 0;
+						$file_count = 0;
 					}
 
 					// don't show permissions to files that have since been removed
-					if ( ! $product->exists() || ! $product->has_file( $download->download_id ) )
+					if ( ! $product || ! $product->exists() || ! $product->has_file( $download->download_id ) )
 						continue;
 
 					include( 'order-download-permission-html.php' );
@@ -76,9 +76,8 @@ function woocommerce_order_downloads_meta_box() {
 						if ( $products ) foreach ( $products as $product ) {
 
 							$product_object = get_product( $product->ID );
-							$product_name   = woocommerce_get_formatted_product_name( $product_object );
 
-							echo '<option value="' . esc_attr( $product->ID ) . '">' . esc_html( $product_name ) . '</option>';
+							echo '<option value="' . esc_attr( $product->ID ) . '">' . esc_html( $product_object->get_formatted_name() ) . '</option>';
 
 						}
 					?>
@@ -122,7 +121,7 @@ function woocommerce_order_downloads_meta_box() {
 
 				} else {
 
-					alert('<?php _e( 'Could not grant access - the user may already have permission for this file.', 'woocommerce' ); ?>');
+					alert('<?php echo esc_js( __( 'Could not grant access - the user may already have permission for this file or billing email is not set. Ensure the billing email is set, and the order has been saved.', 'woocommerce' ) ); ?>');
 
 				}
 
@@ -145,7 +144,7 @@ function woocommerce_order_downloads_meta_box() {
 
 		jQuery('.order_download_permissions').on('click', 'button.revoke_access', function(e){
 			e.preventDefault();
-			var answer = confirm('<?php _e( 'Are you sure you want to revoke access to this download?', 'woocommerce' ); ?>');
+			var answer = confirm('<?php echo esc_js( __( 'Are you sure you want to revoke access to this download?', 'woocommerce' ) ); ?>');
 			if (answer){
 
 				var el = jQuery(this).parent().parent();
@@ -185,7 +184,7 @@ function woocommerce_order_downloads_meta_box() {
 	});
 	<?php
 	$javascript = ob_get_clean();
-	$woocommerce->add_inline_js( $javascript );
+	$woocommerce->get_helper( 'inline-javascript' )->add_inline_js( $javascript );
 }
 
 

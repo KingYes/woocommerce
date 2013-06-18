@@ -66,7 +66,7 @@ function woocommerce_dashboard_widget_right_now() {
 	$product_count      = wp_count_posts( 'product' );
 	$product_cat_count  = wp_count_terms( 'product_cat' );
 	$product_tag_count  = wp_count_terms( 'product_tag' );
-	$product_attr_count = count( $woocommerce->get_attribute_taxonomies() );
+	$product_attr_count = count( $woocommerce->get_helper( 'attribute' )->get_attribute_taxonomies() );
 
 	$pending_count      = get_term_by( 'slug', 'pending', 'shop_order_status' )->count;
 	$completed_count    = get_term_by( 'slug', 'completed', 'shop_order_status' )->count;
@@ -235,8 +235,8 @@ function woocommerce_dashboard_recent_orders() {
 
 			echo '
 			<li>
-				<span class="order-status '.sanitize_title($this_order->status).'">'.ucwords(__($this_order->status, 'woocommerce')).'</span> <a href="'.admin_url('post.php?post='.$order->ID).'&action=edit">' . get_the_time( __( 'l jS \of F Y h:i:s A', 'woocommerce' ), $order->ID ) . '</a><br />
-				<small>'.sizeof($this_order->get_items()).' '._n('item', 'items', sizeof($this_order->get_items()), 'woocommerce').' <span class="order-cost">'.__('Total:', 'woocommerce' ) . ' ' . woocommerce_price($this_order->order_total).'</span></small>
+				<span class="order-status ' . sanitize_title( $this_order->status ) . '">' . ucwords( __( $this_order->status, 'woocommerce' ) ) . '</span> <a href="' . admin_url( 'post.php?post=' . $order->ID ) . '&action=edit">' . get_the_time( __( 'l jS \of F Y h:i:s A', 'woocommerce' ), $order->ID ) . '</a><br />
+				<small>' . $this_order->get_item_count() . ' ' . _n( 'item', 'items', $this_order->get_item_count(), 'woocommerce' ) . ' <span class="order-cost">'.__('Total:', 'woocommerce' ) . ' ' . woocommerce_price( $this_order->order_total ).'</span></small>
 			</li>';
 
 		endforeach;
@@ -276,7 +276,7 @@ function woocommerce_dashboard_recent_reviews() {
 			$rating = get_comment_meta( $comment->comment_ID, 'rating', true );
 
 			echo '<div class="star-rating" title="' . $rating . '">
-				<span style="width:'. ( $rating * 10 ) . 'px">' . $rating . ' ' . __( 'out of 5', 'woocommerce' ) . '</span></div>';
+				<span style="width:'. ( $rating * 20 ) . '%">' . $rating . ' ' . __( 'out of 5', 'woocommerce' ) . '</span></div>';
 
 			echo '<h4 class="meta"><a href="' . get_permalink( $comment->ID ) . '#comment-' . absint( $comment->comment_ID ) .'">' . esc_html__( $comment->post_title ) . '</a> reviewed by ' . esc_html( $comment->comment_author ) .'</h4>';
 			echo '<blockquote>' . wp_kses_data( $comment->comment_excerpt ) . ' [...]</blockquote></li>';
@@ -422,12 +422,16 @@ function woocommerce_dashboard_sales_js() {
 
 	/* Script variables */
 	$params = array(
-		'currency_symbol' 	=> get_woocommerce_currency_symbol(),
-		'number_of_sales' 	=> absint( array_sum( $order_counts ) ),
-		'sales_amount'    	=> woocommerce_price( array_sum( $order_amounts ) ),
-		'sold' 				=> __( 'Sold', 'woocommerce' ),
-		'earned'    		=> __( 'Earned', 'woocommerce' ),
-		'month_names'     	=> array_values( $wp_locale->month_abbrev ),
+		'currency_format_num_decimals' => absint( get_option( 'woocommerce_price_num_decimals' ) ),
+		'currency_format_symbol'       => get_woocommerce_currency_symbol(),
+		'currency_format_decimal_sep'  => esc_attr( stripslashes( get_option( 'woocommerce_price_decimal_sep' ) ) ),
+		'currency_format_thousand_sep' => esc_attr( stripslashes( get_option( 'woocommerce_price_thousand_sep' ) ) ),
+		'currency_format'              => esc_attr( str_replace( array( '%1$s', '%2$s' ), array( '%s', '%v' ), get_woocommerce_price_format() ) ),
+		'number_of_sales'              => absint( array_sum( $order_counts ) ),
+		'sales_amount'                 => woocommerce_price( array_sum( $order_amounts ) ),
+		'i18n_sold'                    => __( 'Sold', 'woocommerce' ),
+		'i18n_earned'                  => __( 'Earned', 'woocommerce' ),
+		'i18n_month_names'             => array_values( $wp_locale->month_abbrev ),
 	);
 
 	$order_counts_array = array();
@@ -447,13 +451,11 @@ function woocommerce_dashboard_sales_js() {
 	// Queue scripts
 	$suffix = defined('SCRIPT_DEBUG') && SCRIPT_DEBUG ? '' : '.min';
 
-	wp_register_script( 'woocommerce_dashboard_sales', $woocommerce->plugin_url() . '/assets/js/admin/dashboard_sales'.$suffix.'.js', 'jquery', '1.0' );
+	wp_register_script( 'woocommerce_dashboard_sales', $woocommerce->plugin_url() . '/assets/js/admin/dashboard_sales' . $suffix . '.js', array( 'jquery', 'flot', 'flot-resize', 'accounting' ), $woocommerce->version );
 	wp_register_script( 'flot', $woocommerce->plugin_url() . '/assets/js/admin/jquery.flot'.$suffix.'.js', 'jquery', '1.0' );
 	wp_register_script( 'flot-resize', $woocommerce->plugin_url() . '/assets/js/admin/jquery.flot.resize'.$suffix.'.js', 'jquery', '1.0' );
 
 	wp_localize_script( 'woocommerce_dashboard_sales', 'params', $params );
 
-	wp_print_scripts('flot');
-	wp_print_scripts('flot-resize');
-	wp_print_scripts('woocommerce_dashboard_sales');
+	wp_print_scripts( 'woocommerce_dashboard_sales' );
 }

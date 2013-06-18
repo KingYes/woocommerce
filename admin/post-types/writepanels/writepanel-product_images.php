@@ -28,7 +28,8 @@ function woocommerce_product_images_box() {
 					$product_image_gallery = get_post_meta( $post->ID, '_product_image_gallery', true );
 				} else {
 					// Backwards compat
-					$attachment_ids = array_filter( array_diff( get_posts( 'post_parent=' . $post->ID . '&numberposts=-1&post_type=attachment&orderby=menu_order&order=ASC&post_mime_type=image&fields=ids' ), array( get_post_thumbnail_id() ) ) );
+					$attachment_ids = get_posts( 'post_parent=' . $post->ID . '&numberposts=-1&post_type=attachment&orderby=menu_order&order=ASC&post_mime_type=image&fields=ids&meta_key=_woocommerce_exclude_image&meta_value=0' );
+					$attachment_ids = array_diff( $attachment_ids, array( get_post_thumbnail_id() ) );
 					$product_image_gallery = implode( ',', $attachment_ids );
 				}
 
@@ -37,7 +38,7 @@ function woocommerce_product_images_box() {
 				if ( $attachments )
 					foreach ( $attachments as $attachment_id ) {
 						echo '<li class="image" data-attachment_id="' . $attachment_id . '">
-							' . wp_get_attachment_image( $attachment_id, 'full' ) . '
+							' . wp_get_attachment_image( $attachment_id, 'thumbnail' ) . '
 							<ul class="actions">
 								<li><a href="#" class="delete" title="' . __( 'Delete image', 'woocommerce' ) . '">' . __( 'Delete', 'woocommerce' ) . '</a></li>
 							</ul>

@@ -50,7 +50,6 @@ function variable_product_type_options() {
 	// Get tax classes
 	$tax_classes = array_filter( array_map('trim', explode( "\n", get_option( 'woocommerce_tax_classes' ) ) ) );
 	$tax_class_options = array();
-	$tax_class_options['parent'] = __( 'Same as parent', 'woocommerce' );
 	$tax_class_options[''] = __( 'Standard', 'woocommerce' );
 	if ( $tax_classes )
 		foreach ( $tax_classes as $class )
@@ -64,7 +63,7 @@ function variable_product_type_options() {
 				<div class="squeezer">
 					<h4><?php _e( 'Before adding variations, add and save some attributes on the <strong>Attributes</strong> tab.', 'woocommerce' ); ?></h4>
 
-					<p class="submit"><a class="button-primary" href="http://www.woothemes.com/woocommerce-docs/user-guide/product-variations/" target="_blank"><?php _e( 'Learn more', 'woocommerce' ); ?></a></p>
+					<p class="submit"><a class="button-primary" href="http://docs.woothemes.com/document/product-variations/" target="_blank"><?php _e( 'Learn more', 'woocommerce' ); ?></a></p>
 				</div>
 			</div>
 
@@ -79,7 +78,11 @@ function variable_product_type_options() {
 					<option value="toggle_virtual"><?php _e( 'Toggle &quot;Virtual&quot;', 'woocommerce' ); ?></option>
 					<option value="delete_all"><?php _e( 'Delete all variations', 'woocommerce' ); ?></option>
 					<option value="variable_regular_price"><?php _e( 'Prices', 'woocommerce' ); ?></option>
+					<option value="variable_regular_price_increase"><?php _e( 'Prices increase by (fixed amount or %)', 'woocommerce' ); ?></option>
+					<option value="variable_regular_price_decrease"><?php _e( 'Prices decrease by (fixed amount or %)', 'woocommerce' ); ?></option>
 					<option value="variable_sale_price"><?php _e( 'Sale prices', 'woocommerce' ); ?></option>
+					<option value="variable_sale_price_increase"><?php _e( 'Sale prices increase by (fixed amount or %)', 'woocommerce' ); ?></option>
+					<option value="variable_sale_price_decrease"><?php _e( 'Sale prices decrease by (fixed amount or %)', 'woocommerce' ); ?></option>
 					<option value="variable_stock"><?php _e( 'Stock', 'woocommerce' ); ?></option>
 					<option value="variable_weight"><?php _e( 'Weight', 'woocommerce' ); ?></option>
 					<option value="variable_length"><?php _e( 'Length', 'woocommerce' ); ?></option>
@@ -88,6 +91,7 @@ function variable_product_type_options() {
 					<option value="variable_file_paths" rel="textarea"><?php _e( 'File Path', 'woocommerce' ); ?></option>
 					<option value="variable_download_limit"><?php _e( 'Download limit', 'woocommerce' ); ?></option>
 					<option value="variable_download_expiry"><?php _e( 'Download Expiry', 'woocommerce' ); ?></option>
+					<?php do_action( 'woocommerce_variable_product_bulk_edit_actions' ); ?>
 				</select>
 				<a class="button bulk_edit"><?php _e( 'Go', 'woocommerce' ); ?></a>
 			</p>
@@ -151,7 +155,6 @@ function variable_product_type_options() {
 						'_length',
 						'_width',
 						'_height',
-						'_tax_class',
 						'_download_limit',
 						'_download_expiry',
 						'_file_paths',
@@ -164,6 +167,9 @@ function variable_product_type_options() {
 
 					foreach ( $variation_fields as $field )
 						$$field = isset( $variation_data[ $field ][0] ) ? $variation_data[ $field ][0] : '';
+
+					// Tax class handling
+					$_tax_class = isset( $variation_data['_tax_class'][0] ) ? $variation_data['_tax_class'][0] : null;
 
 					// Price backwards compat
 					if ( $_regular_price == '' && $_price )
@@ -206,17 +212,23 @@ function variable_product_type_options() {
 						$variation_selected_value = isset( $default_attributes[ sanitize_title( $attribute['name'] ) ] ) ? $default_attributes[ sanitize_title( $attribute['name'] ) ] : '';
 
 						// Name will be something like attribute_pa_color
-						echo '<select name="default_attribute_' . sanitize_title( $attribute['name'] ) . '"><option value="">' . __( 'No default', 'woocommerce' ) . ' ' . esc_html( $woocommerce->attribute_label( $attribute['name'] ) ) . '&hellip;</option>';
+						echo '<select name="default_attribute_' . sanitize_title( $attribute['name'] ) . '"><option value="">' . __( 'No default', 'woocommerce' ) . ' ' . esc_html( $woocommerce->get_helper( 'attribute' )->attribute_label( $attribute['name'] ) ) . '&hellip;</option>';
 
 						// Get terms for attribute taxonomy or value if its a custom attribute
 						if ( $attribute['is_taxonomy'] ) {
+
 							$post_terms = wp_get_post_terms( $post->ID, $attribute['name'] );
+
 							foreach ( $post_terms as $term )
 								echo '<option ' . selected( $variation_selected_value, $term->slug, false ) . ' value="' . esc_attr( $term->slug ) . '">' . apply_filters( 'woocommerce_variation_option_name', esc_html( $term->name ) ) . '</option>';
+
 						} else {
-							$options = explode( '|', $attribute['value'] );
+
+							$options = array_map( 'trim', explode( '|', $attribute['value'] ) );
+
 							foreach ( $options as $option )
-								echo '<option ' . selected( $variation_selected_value, $option, false ) . ' value="' . esc_attr( $option ) . '">' . ucfirst( apply_filters( 'woocommerce_variation_option_name', esc_html( $option ) ) ) . '</option>';
+								echo '<option ' . selected( sanitize_title( $variation_selected_value ), sanitize_title( $option ), false ) . ' value="' . esc_attr( sanitize_title( $option ) ) . '">' . esc_html( apply_filters( 'woocommerce_variation_option_name', $option ) )  . '</option>';
+
 						}
 
 						echo '</select>';
@@ -233,6 +245,25 @@ function variable_product_type_options() {
 	ob_start();
 	?>
 	jQuery(function(){
+
+		var variation_sortable_options = {
+			items:'.woocommerce_variation',
+			cursor:'move',
+			axis:'y',
+			handle: 'h3',
+			scrollSensitivity:40,
+			forcePlaceholderSize: true,
+			helper: 'clone',
+			opacity: 0.65,
+			placeholder: 'wc-metabox-sortable-placeholder',
+			start:function(event,ui){
+				ui.item.css('background-color','#f6f6f6');
+			},
+			stop:function(event,ui){
+				ui.item.removeAttr('style');
+				variation_row_indexes();
+			}
+		};
 
 		// Add a variation
 		jQuery('#variable_product_options').on('click', 'button.add_variation', function(){
@@ -261,7 +292,7 @@ function variable_product_type_options() {
 			    jQuery('input.variable_is_downloadable, input.variable_is_virtual').change();
 
 				jQuery('.woocommerce_variations').unblock();
-				jQuery('.woocommerce_variations').trigger('woocommerce_variations_added');
+				jQuery('#variable_product_options').trigger('woocommerce_variations_added');
 			});
 
 			return false;
@@ -270,7 +301,7 @@ function variable_product_type_options() {
 
 		jQuery('#variable_product_options').on('click', 'button.link_all_variations', function(){
 
-			var answer = confirm('<?php _e( 'Are you sure you want to link all variations? This will create a new variation for each and every possible combination of variation attributes (max 50 per run).', 'woocommerce' ); ?>');
+			var answer = confirm('<?php echo esc_js( __( 'Are you sure you want to link all variations? This will create a new variation for each and every possible combination of variation attributes (max 50 per run).', 'woocommerce' ) ); ?>');
 
 			if (answer) {
 
@@ -287,11 +318,11 @@ function variable_product_type_options() {
 					var count = parseInt( response );
 
 					if (count==1) {
-						alert( count + ' <?php _e( "variation added", 'woocommerce' ); ?>');
+						alert( count + ' <?php echo esc_js( __( "variation added", 'woocommerce' ) ); ?>');
 					} else if (count==0 || count>1) {
-						alert( count + ' <?php _e( "variations added", 'woocommerce' ); ?>');
+						alert( count + ' <?php echo esc_js( __( "variations added", 'woocommerce' ) ); ?>');
 					} else {
-						alert('<?php _e( "No variations added", 'woocommerce' ); ?>');
+						alert('<?php echo esc_js( __( "No variations added", 'woocommerce' ) ); ?>');
 					}
 
 					if (count>0) {
@@ -301,7 +332,7 @@ function variable_product_type_options() {
 
 						$('#variable_product_options').load( this_page + ' #variable_product_options_inner', function() {
 							$('#variable_product_options').unblock();
-							jQuery('.woocommerce_variations').trigger('woocommerce_variations_added');
+							jQuery('#variable_product_options').trigger('woocommerce_variations_added');
 						} );
 					} else {
 						$('#variable_product_options').unblock();
@@ -314,7 +345,7 @@ function variable_product_type_options() {
 
 		jQuery('#variable_product_options').on('click', 'button.remove_variation', function(e){
 			e.preventDefault();
-			var answer = confirm('<?php _e( 'Are you sure you want to remove this variation?', 'woocommerce' ); ?>');
+			var answer = confirm('<?php echo esc_js( __( 'Are you sure you want to remove this variation?', 'woocommerce' ) ); ?>');
 			if (answer){
 
 				var el = jQuery(this).parent().parent();
@@ -370,10 +401,10 @@ function variable_product_type_options() {
 			}
 			else if ( field_to_edit == 'delete_all' ) {
 
-				var answer = confirm('<?php _e( 'Are you sure you want to delete all variations? This cannot be undone.', 'woocommerce' ); ?>');
+				var answer = confirm('<?php echo esc_js( __( 'Are you sure you want to delete all variations? This cannot be undone.', 'woocommerce' ) ); ?>');
 				if (answer){
 
-					var answer = confirm('<?php _e( 'Last warning, are you sure?', 'woocommerce' ); ?>');
+					var answer = confirm('<?php echo esc_js( __( 'Last warning, are you sure?', 'woocommerce' ) ); ?>');
 
 					if (answer) {
 
@@ -406,14 +437,81 @@ function variable_product_type_options() {
 				}
 				return false;
 			}
+			else if ( field_to_edit == 'variable_regular_price_increase' ) {
+				field_to_edit = 'variable_regular_price';
+				var input_tag = jQuery('select#field_to_edit :selected').attr('rel') ? jQuery('select#field_to_edit :selected').attr('rel') : 'input';
+
+				var value = prompt("<?php echo esc_js( __( 'Enter a value (fixed or %)', 'woocommerce' ) ); ?>");
+				jQuery(input_tag + '[name^="' + field_to_edit + '"]').each(function() {
+					var current_value = jQuery(this).val();
+
+					if ( value.indexOf("%") >= 0 ) {
+						var new_value = Number( current_value ) + ( ( Number( current_value ) / 100 ) * Number( value.replace(/\%/, "" ) ) );
+					} else {
+						var new_value = Number( current_value ) + Number ( value );
+					}
+					jQuery(this).val( new_value ).change();
+				});
+				return false;
+			}
+			else if ( field_to_edit == 'variable_regular_price_decrease' ) {
+				field_to_edit = 'variable_regular_price';
+				var input_tag = jQuery('select#field_to_edit :selected').attr('rel') ? jQuery('select#field_to_edit :selected').attr('rel') : 'input';
+
+				var value = prompt("<?php echo esc_js( __( 'Enter a value (fixed or %)', 'woocommerce' ) ); ?>");
+				jQuery(input_tag + '[name^="' + field_to_edit + '"]').each(function() {
+					var current_value = jQuery(this).val();
+
+					if ( value.indexOf("%") >= 0 ) {
+						var new_value = Number( current_value ) - ( ( Number( current_value ) / 100 ) * Number( value.replace(/\%/, "" ) ) );
+					} else {
+						var new_value = Number( current_value ) - Number ( value );
+					}
+					jQuery(this).val( new_value ).change();
+				});
+				return false;
+			}
+			else if ( field_to_edit == 'variable_sale_price_increase' ) {
+				field_to_edit = 'variable_sale_price';
+				var input_tag = jQuery('select#field_to_edit :selected').attr('rel') ? jQuery('select#field_to_edit :selected').attr('rel') : 'input';
+
+				var value = prompt("<?php echo esc_js( __( 'Enter a value (fixed or %)', 'woocommerce' ) ); ?>");
+				jQuery(input_tag + '[name^="' + field_to_edit + '"]').each(function() {
+					var current_value = jQuery(this).val();
+
+					if ( value.indexOf("%") >= 0 ) {
+						var new_value = Number( current_value ) + ( ( Number( current_value ) / 100 ) * Number( value.replace(/\%/, "" ) ) );
+					} else {
+						var new_value = Number( current_value ) + Number ( value );
+					}
+					jQuery(this).val( new_value ).change();
+				});
+				return false;
+			}
+			else if ( field_to_edit == 'variable_sale_price_decrease' ) {
+				field_to_edit = 'variable_sale_price';
+				var input_tag = jQuery('select#field_to_edit :selected').attr('rel') ? jQuery('select#field_to_edit :selected').attr('rel') : 'input';
+
+				var value = prompt("<?php echo esc_js( __( 'Enter a value (fixed or %)', 'woocommerce' ) ); ?>");
+				jQuery(input_tag + '[name^="' + field_to_edit + '"]').each(function() {
+					var current_value = jQuery(this).val();
+
+					if ( value.indexOf("%") >= 0 ) {
+						var new_value = Number( current_value ) - ( ( Number( current_value ) / 100 ) * Number( value.replace(/\%/, "" ) ) );
+					} else {
+						var new_value = Number( current_value ) - Number ( value );
+					}
+					jQuery(this).val( new_value ).change();
+				});
+				return false;
+			}
 			else {
 
 				var input_tag = jQuery('select#field_to_edit :selected').attr('rel') ? jQuery('select#field_to_edit :selected').attr('rel') : 'input';
 
-				var value = prompt("<?php _e( 'Enter a value', 'woocommerce' ); ?>");
-				jQuery(input_tag + '[name^="' + field_to_edit + '["]').val( value );
+				var value = prompt("<?php echo esc_js( __( 'Enter a value', 'woocommerce' ) ); ?>");
+				jQuery(input_tag + '[name^="' + field_to_edit + '["]').val( value ).change();
 				return false;
-
 			}
 		});
 
@@ -440,24 +538,11 @@ function variable_product_type_options() {
 		jQuery('input.variable_is_downloadable, input.variable_is_virtual').change();
 
 		// Ordering
-		$('.woocommerce_variations').sortable({
-			items:'.woocommerce_variation',
-			cursor:'move',
-			axis:'y',
-			handle: 'h3',
-			scrollSensitivity:40,
-			forcePlaceholderSize: true,
-			helper: 'clone',
-			opacity: 0.65,
-			placeholder: 'wc-metabox-sortable-placeholder',
-			start:function(event,ui){
-				ui.item.css('background-color','#f6f6f6');
-			},
-			stop:function(event,ui){
-				ui.item.removeAttr('style');
-				variation_row_indexes();
-			}
-		});
+		$('#variable_product_options').on( 'woocommerce_variations_added', function() {
+			$('.woocommerce_variations').sortable( variation_sortable_options );
+		} );
+
+		$('.woocommerce_variations').sortable( variation_sortable_options );
 
 		function variation_row_indexes() {
 			$('.woocommerce_variations .woocommerce_variation').each(function(index, el){
@@ -501,9 +586,9 @@ function variable_product_type_options() {
 				// Create the media frame.
 				variable_image_frame = wp.media.frames.variable_image = wp.media({
 					// Set the title of the modal.
-					title: '<?php _e( 'Choose an image', 'woocommerce' ); ?>',
+					title: '<?php echo esc_js( __( 'Choose an image', 'woocommerce' ) ); ?>',
 					button: {
-						text: '<?php _e( 'Set variation image', 'woocommerce' ); ?>'
+						text: '<?php echo esc_js( __( 'Set variation image', 'woocommerce' ) ); ?>'
 					}
 				});
 
@@ -532,7 +617,7 @@ function variable_product_type_options() {
 	});
 	<?php
 	$javascript = ob_get_clean();
-	$woocommerce->add_inline_js( $javascript );
+	$woocommerce->get_helper( 'inline-javascript' )->add_inline_js( $javascript );
 }
 
 add_action('woocommerce_product_write_panels', 'variable_product_type_options');
@@ -708,7 +793,7 @@ function process_product_meta_variable( $post_id ) {
 					$file_paths = explode( "\n", $file_paths );
 
 					foreach ( $file_paths as $file_path ) {
-						$file_path = woocommerce_clean( $file_path );
+						$file_path = trim( $file_path );
 						$_file_paths[ md5( $file_path ) ] = $file_path;
 					}
 				}
@@ -738,7 +823,8 @@ function process_product_meta_variable( $post_id ) {
 
 				if ( $attribute['is_variation'] ) {
 
-					$value = woocommerce_clean( $_POST[ 'attribute_' . sanitize_title( $attribute['name'] ) ][ $i ] );
+					// Don't use woocommerce_clean as it destroys sanitized characters
+					$value = sanitize_title( trim( stripslashes( $_POST[ 'attribute_' . sanitize_title( $attribute['name'] ) ][ $i ] ) ) );
 
 					update_post_meta( $variation_id, 'attribute_' . sanitize_title( $attribute['name'] ), $value );
 				}
@@ -770,6 +856,9 @@ function process_product_meta_variable( $post_id ) {
 			$child_price 			= get_post_meta( $child, '_price', true );
 			$child_regular_price 	= get_post_meta( $child, '_regular_price', true );
 			$child_sale_price 		= get_post_meta( $child, '_sale_price', true );
+
+			if ( $child_price === '' && $child_regular_price === '' )
+				continue;
 
 			// Regular prices
 			if ( ! is_numeric( $lowest_regular_price ) || $child_regular_price < $lowest_regular_price )
@@ -805,7 +894,10 @@ function process_product_meta_variable( $post_id ) {
 
 	foreach ( $attributes as $attribute ) {
 		if ( $attribute['is_variation'] ) {
-			$value = woocommerce_clean( $_POST[ 'default_attribute_' . sanitize_title( $attribute['name'] ) ] );
+
+			// Don't use woocommerce_clean as it destroys sanitized characters
+			$value = sanitize_title( trim( stripslashes( $_POST[ 'default_attribute_' . sanitize_title( $attribute['name'] ) ] ) ) );
+
 			if ( $value )
 				$default_attributes[ sanitize_title( $attribute['name'] ) ] = $value;
 		}

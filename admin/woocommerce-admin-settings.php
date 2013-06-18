@@ -41,7 +41,7 @@ if ( ! function_exists( 'woocommerce_settings' ) ) {
 	    // Save settings
 	    if ( ! empty( $_POST ) ) {
 
-	    	if ( ! wp_verify_nonce( $_REQUEST['_wpnonce'], 'woocommerce-settings' ) )
+	    	if ( empty( $_REQUEST['_wpnonce'] ) || ! wp_verify_nonce( $_REQUEST['_wpnonce'], 'woocommerce-settings' ) )
 	    		die( __( 'Action failed. Please refresh the page and retry.', 'woocommerce' ) );
 
 	    	if ( ! $current_section ) {
@@ -134,7 +134,9 @@ if ( ! function_exists( 'woocommerce_settings' ) ) {
 			}
 
 			// Clear any unwanted data
-			$woocommerce->clear_product_transients();
+			$woocommerce->get_helper( 'transient' )->clear_product_transients();
+
+			delete_transient( 'woocommerce_cache_excluded_uris' );
 
 			// Redirect back to the settings page
 			$redirect = add_query_arg( 'saved', 'true' );
@@ -169,45 +171,8 @@ if ( ! function_exists( 'woocommerce_settings' ) ) {
 	    }
 
 	    // Hide WC Link
-	    if (isset($_GET['hide-wc-extensions-message']))
-	    	update_option('hide-wc-extensions-message', 1);
-
-	    // Install/page installer
-	    $install_complete = false;
-
-	    // Add pages button
-	    if (isset($_GET['install_woocommerce_pages']) && $_GET['install_woocommerce_pages']) {
-
-			require_once( 'woocommerce-admin-install.php' );
-	    	woocommerce_create_pages();
-	    	update_option('skip_install_woocommerce_pages', 1);
-	    	$install_complete = true;
-
-		// Skip button
-	    } elseif (isset($_GET['skip_install_woocommerce_pages']) && $_GET['skip_install_woocommerce_pages']) {
-
-	    	update_option('skip_install_woocommerce_pages', 1);
-	    	$install_complete = true;
-
-	    }
-
-		if ($install_complete) {
-			?>
-	    	<div id="message" class="updated woocommerce-message wc-connect">
-				<div class="squeezer">
-					<h4><?php _e( '<strong>Congratulations!</strong> &#8211; WooCommerce has been installed and setup. Enjoy :)', 'woocommerce' ); ?></h4>
-					<p><a href="https://twitter.com/share" class="twitter-share-button" data-url="http://www.woothemes.com/woocommerce/" data-text="A open-source (free) #ecommerce plugin for #WordPress that helps you sell anything. Beautifully." data-via="WooThemes" data-size="large" data-hashtags="WooCommerce">Tweet</a>
-		<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script></p>
-				</div>
-			</div>
-			<?php
-
-			// Flush rules after install
-			flush_rewrite_rules( false );
-
-			// Set installed option
-			update_option('woocommerce_installed', 0);
-		}
+	    if ( ! empty( $_GET['hide-wc-extensions-message'] ) )
+	    	update_option( 'hide-wc-extensions-message', 1 );
 	    ?>
 		<div class="wrap woocommerce">
 			<form method="post" id="mainform" action="" enctype="multipart/form-data">
@@ -239,7 +204,7 @@ if ( ! function_exists( 'woocommerce_settings' ) ) {
 						do_action( 'woocommerce_settings_tabs' );
 					?>
 				</h2>
-				<?php wp_nonce_field( 'woocommerce-settings', '_wpnonce', true, true ); ?>
+				<?php wp_nonce_field( 'woocommerce-settings' ); ?>
 
 				<?php if ( ! get_option('hide-wc-extensions-message') ) : ?>
 					<div id="woocommerce_extensions"><a href="<?php echo add_query_arg('hide-wc-extensions-message', 'true') ?>" class="hide">&times;</a><?php printf(__( 'More functionality and gateway options available via <a href="%s" target="_blank">WC official extensions</a>.', 'woocommerce' ), 'http://www.woothemes.com/extensions/woocommerce-extensions/'); ?></div>
@@ -501,6 +466,19 @@ if ( ! function_exists( 'woocommerce_settings' ) ) {
 					jQuery("select.chosen_select_nostd").chosen({
 						allow_single_deselect: 'true'
 					});
+
+					// Select all/none
+					jQuery('.select_all').live('click', function() {
+						jQuery(this).closest( 'td' ).find( 'select option' ).attr( "selected", "selected" );
+						jQuery(this).closest( 'td' ).find('select').trigger( 'liszt:updated' );
+						return false;
+					});
+
+					jQuery('.select_none').live('click', function() {
+						jQuery(this).closest( 'td' ).find( 'select option' ).removeAttr( "selected" );
+						jQuery(this).closest( 'td' ).find('select').trigger( 'liszt:updated' );
+						return false;
+					});
 				});
 			</script>
 		</div>
@@ -598,9 +576,13 @@ function woocommerce_admin_fields( $options ) {
 		}
 
 		if ( $tip && in_array( $value['type'], array( 'checkbox' ) ) ) {
-			$tip = '<span class="help_tip" data-tip="' . esc_attr( $tip ) . '">[?]</span>';
+
+			$tip = '<p class="description">' . $tip . '</p>';
+
 		} elseif ( $tip ) {
+
 			$tip = '<img class="help_tip" data-tip="' . esc_attr( $tip ) . '" src="' . $woocommerce->plugin_url() . '/assets/images/help.png" height="16" width="16" />';
+
 		}
 
 		// Switch based on type
@@ -797,7 +779,7 @@ function woocommerce_admin_fields( $options ) {
 						value="1"
 						<?php checked( $option_value, 'yes'); ?>
 						<?php echo implode( ' ', $custom_attributes ); ?>
-					/> <?php echo wp_kses_post( $value['desc'] ) ?></label> <?php echo $tip; ?><br />
+					/> <?php echo wp_kses_post( $value['desc'] ) ?></label> <?php echo $tip; ?>
 				<?php
 
 				if ( ! isset( $value['checkboxgroup'] ) || ( isset( $value['checkboxgroup'] ) && $value['checkboxgroup'] == 'end' ) ) {
@@ -822,7 +804,7 @@ function woocommerce_admin_fields( $options ) {
             	$crop 	= checked( 1, woocommerce_settings_get_option( $value['id'] . '[crop]', $value['default']['crop'] ), false );
 
             	?><tr valign="top">
-					<th scope="row" class="titledesc"><?php echo esc_html( $value['title'] ) ?></th>
+					<th scope="row" class="titledesc"><?php echo esc_html( $value['title'] ) ?> <?php echo $tip; ?></th>
                     <td class="forminp">
 
                     	<?php _e( 'Width', 'woocommerce' ); ?> <input name="<?php echo esc_attr( $value['id'] ); ?>[width]" id="<?php echo esc_attr( $value['id'] ); ?>-width" type="text" size="3" value="<?php echo $width; ?>" />
@@ -831,7 +813,7 @@ function woocommerce_admin_fields( $options ) {
 
                     	<label><?php _e( 'Hard Crop', 'woocommerce' ); ?> <input name="<?php echo esc_attr( $value['id'] ); ?>[crop]" id="<?php echo esc_attr( $value['id'] ); ?>-crop" type="checkbox" <?php echo $crop; ?> /></label>
 
-                    	<?php echo $description; ?></td>
+                    	</td>
                 </tr><?php
             break;
 
@@ -897,13 +879,13 @@ function woocommerce_admin_fields( $options ) {
 						<?php echo $tip; ?>
 					</th>
                     <td class="forminp">
-	                    <select multiple="multiple" name="<?php echo esc_attr( $value['id'] ); ?>[]" style="width:450px;" data-placeholder="<?php _e( 'Choose countries&hellip;', 'woocommerce' ); ?>" title="Country" class="chosen_select">
+	                    <select multiple="multiple" name="<?php echo esc_attr( $value['id'] ); ?>[]" style="width:350px" data-placeholder="<?php _e( 'Choose countries&hellip;', 'woocommerce' ); ?>" title="Country" class="chosen_select">
 				        	<?php
 				        		if ( $countries )
 				        			foreach ( $countries as $key => $val )
 	                    				echo '<option value="'.$key.'" ' . selected( in_array( $key, $selections ), true, false ).'>' . $val . '</option>';
 	                    	?>
-				        </select> <?php echo $description; ?>
+				        </select> <?php echo $description; ?> <br/><a class="select_all button" href="#"><?php _e( 'Select all', 'woocommerce' ); ?></a> <a class="select_none button" href="#"><?php _e( 'Select none', 'woocommerce' ); ?></a>
                		</td>
                	</tr><?php
             break;

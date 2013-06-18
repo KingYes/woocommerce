@@ -30,7 +30,7 @@ foreach ( $product->get_children() as $child_id ) {
 
 <?php do_action('woocommerce_before_add_to_cart_form'); ?>
 
-<form action="<?php echo esc_url( $product->add_to_cart_url() ); ?>" class="cart" method="post" enctype='multipart/form-data'>
+<form class="cart" method="post" enctype='multipart/form-data'>
 	<table cellspacing="0" class="group_table">
 		<tbody>
 			<?php foreach ( $grouped_products as $child_product ) : ?>
@@ -42,7 +42,7 @@ foreach ( $product->get_children() as $child_id ) {
 
 						<?php elseif ( ! $quantites_required ) : ?>
 
-							<button type="submit" name="quantity[<?php echo $child_product['product']->id; ?>]" value="1" class="single_add_to_cart_button button alt"><?php _e( 'Add to cart', 'woocommerce' ); ?></button>
+							<a href="<?php echo esc_url( $child_product['product']->add_to_cart_url() ); ?>" rel="nofollow" class="single_add_to_cart_button button alt"><?php echo apply_filters( 'single_add_to_cart_text', __( 'Add to cart', 'woocommerce' ), $child_product['product']->product_type ); ?></a>
 
 						<?php else : ?>
 
@@ -60,6 +60,8 @@ foreach ( $product->get_children() as $child_id ) {
 
 					?></label></td>
 
+					<?php do_action ( 'woocommerce_grouped_product_list_before_price', $child_product['product'] ); ?>
+
 					<td class="price"><?php echo $child_product['product']->get_price_html(); ?>
 					<?php echo apply_filters( 'woocommerce_stock_html', '<small class="stock '.$child_product['availability']['class'].'">'.$child_product['availability']['availability'].'</small>', $child_product['availability']['availability'] ); ?>
 					</td>
@@ -67,6 +69,8 @@ foreach ( $product->get_children() as $child_id ) {
 			<?php endforeach; ?>
 		</tbody>
 	</table>
+
+	<input type="hidden" name="add-to-cart" value="<?php echo esc_attr( $product->id ); ?>" />
 
 	<?php if ( $quantites_required ) : ?>
 
@@ -77,7 +81,6 @@ foreach ( $product->get_children() as $child_id ) {
 		<?php do_action('woocommerce_after_add_to_cart_button'); ?>
 
 	<?php endif; ?>
-
 </form>
 
 <?php do_action('woocommerce_after_add_to_cart_form'); ?>

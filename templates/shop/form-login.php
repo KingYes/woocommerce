@@ -13,8 +13,8 @@ global $woocommerce;
 
 if (is_user_logged_in()) return;
 ?>
-<form method="post" class="login">
-	<?php if ($message) echo wpautop(wptexturize($message)); ?>
+<form method="post" class="login" <?php if ( $hidden ) echo 'style="display:none;"'; ?>>
+	<?php if ( $message ) echo wpautop( wptexturize( $message ) ); ?>
 
 	<p class="form-row form-row-first">
 		<label for="username"><?php _e( 'Username or email', 'woocommerce' ); ?> <span class="required">*</span></label>
@@ -27,7 +27,7 @@ if (is_user_logged_in()) return;
 	<div class="clear"></div>
 
 	<p class="form-row">
-		<?php $woocommerce->nonce_field('login', 'login') ?>
+		<?php wp_nonce_field( 'woocommerce-login' ) ?>
 		<input type="submit" class="button" name="login" value="<?php _e( 'Login', 'woocommerce' ); ?>" />
 		<input type="hidden" name="redirect" value="<?php echo esc_url( $redirect ) ?>" />
 		<a class="lost_password" href="<?php echo esc_url( wp_lostpassword_url( home_url() ) ); ?>"><?php _e( 'Lost Password?', 'woocommerce' ); ?></a>

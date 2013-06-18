@@ -27,7 +27,7 @@ function woocommerce_tax_rates_setting() {
 			$current_class = $class;
 	?>
 	<h3><?php printf( __( 'Tax Rates for the "%s" Class', 'woocommerce' ), $current_class ? esc_html( $current_class ) : __( 'Standard', 'woocommerce' ) ); ?></h3>
-	<p><?php printf( __( 'Define tax rates for countries and states below. <a href="%s">See here</a> for available country/state codes.', 'woocommerce' ), 'http://wcdocs.woothemes.com/?p=2163' ); ?></p>
+	<p><?php printf( __( 'Define tax rates for countries and states below. <a href="%s">See here</a> for available alpha-2 country codes.', 'woocommerce' ), 'http://en.wikipedia.org/wiki/ISO_3166-1#Current_codes' ); ?></p>
 	<table class="wc_tax_rates widefat">
 		<thead>
 			<tr>
@@ -160,7 +160,7 @@ function woocommerce_tax_rates_setting() {
 
 					});
 				} else {
-					alert('<?php _e( 'No row(s) selected', 'woocommerce' ); ?>');
+					alert('<?php echo esc_js( __( 'No row(s) selected', 'woocommerce' ) ); ?>');
 				}
 				return false;
 			});
@@ -412,16 +412,25 @@ function woocommerce_tax_rates_setting_save() {
 				if ( ! empty( $postcode ) ) {
 					$postcodes = explode( ';', $postcode );
 					$postcodes = array_map( 'strtoupper', array_map( 'woocommerce_clean', $postcodes ) );
-					foreach( $postcodes as $postcode ) {
-						$wpdb->insert(
-						$wpdb->prefix . "woocommerce_tax_rate_locations",
-							array(
-								'location_code' => $postcode,
-								'tax_rate_id'   => $tax_rate_id,
-								'location_type' => 'postcode',
-							)
-						);
-					}
+
+					$postcode_query = array();
+
+					foreach( $postcodes as $postcode )
+						if ( strstr( $postcode, '-' ) ) {
+							$postcode_parts = explode( '-', $postcode );
+
+							if ( is_numeric( $postcode_parts[0] ) && is_numeric( $postcode_parts[1] ) && $postcode_parts[1] > $postcode_parts[0] ) {
+								for ( $i = $postcode_parts[0]; $i <= $postcode_parts[1]; $i ++ ) {
+									if ( $i )
+										$postcode_query[] = "( '" . $wpdb->escape( $i ) . "', $tax_rate_id, 'postcode' )";
+								}
+							}
+						} else {
+							if ( $postcode )
+								$postcode_query[] = "( '" . $wpdb->escape( $postcode ) . "', $tax_rate_id, 'postcode' )";
+						}
+
+					$wpdb->query( "INSERT INTO {$wpdb->prefix}woocommerce_tax_rate_locations ( location_code, tax_rate_id, location_type ) VALUES " . implode( ',', $postcode_query ) );
 				}
 
 				if ( ! empty( $city ) ) {
@@ -507,12 +516,12 @@ function woocommerce_tax_rates_setting_save() {
 						if ( is_numeric( $postcode_parts[0] ) && is_numeric( $postcode_parts[1] ) && $postcode_parts[1] > $postcode_parts[0] ) {
 							for ( $i = $postcode_parts[0]; $i <= $postcode_parts[1]; $i ++ ) {
 								if ( $i )
-									$postcode_query[] = "( '$i', $tax_rate_id, 'postcode' )";
+									$postcode_query[] = "( '" . $wpdb->escape( $i ) . "', $tax_rate_id, 'postcode' )";
 							}
 						}
 					} else {
 						if ( $postcode )
-							$postcode_query[] = "( '$postcode', $tax_rate_id, 'postcode' )";
+							$postcode_query[] = "( '" . $wpdb->escape( $postcode ) . "', $tax_rate_id, 'postcode' )";
 					}
 
 				$wpdb->query( "INSERT INTO {$wpdb->prefix}woocommerce_tax_rate_locations ( location_code, tax_rate_id, location_type ) VALUES " . implode( ',', $postcode_query ) );

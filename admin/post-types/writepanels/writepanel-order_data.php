@@ -101,7 +101,7 @@ function woocommerce_order_data_meta_box($post) {
 						<?php
 
 						// Ajax Chosen Customer Selectors JS
-						$woocommerce->add_inline_js( "
+						$woocommerce->get_helper( 'inline-javascript' )->add_inline_js( "
 							jQuery('select.ajax_chosen_select_customer').ajaxChosen({
 							    method: 		'GET',
 							    url: 			'" . admin_url('admin-ajax.php') . "',
@@ -126,7 +126,7 @@ function woocommerce_order_data_meta_box($post) {
 						?>
 					</p>
 
-					<?php if ( get_option( 'woocommerce_enable_order_comments' ) != 'no' ) : ?>
+					<?php if ( apply_filters( 'woocommerce_enable_order_notes_field', get_option( 'woocommerce_enable_order_comments', 'yes' ) == 'yes' ) ) : ?>
 
 						<p class="form-field form-field-wide"><label for="excerpt"><?php _e( 'Customer Note:', 'woocommerce' ) ?></label>
 						<textarea rows="1" cols="40" name="excerpt" tabindex="6" id="excerpt" placeholder="<?php _e( 'Customer\'s notes about the order', 'woocommerce' ); ?>"><?php echo wp_kses_post( $post->post_excerpt ); ?></textarea></p>
@@ -346,7 +346,7 @@ function woocommerce_order_items_meta_box( $post ) {
 
 					<th class="quantity"><?php _e( 'Qty', 'woocommerce' ); ?></th>
 
-					<th class="line_cost"><?php _e( 'Cost', 'woocommerce' ); ?>&nbsp;<a class="tips" data-tip="<?php _e( 'Line subtotals are before pre-tax discounts, totals are after.', 'woocommerce' ); ?>" href="#">[?]</a></th>
+					<th class="line_cost"><?php _e( 'Totals', 'woocommerce' ); ?>&nbsp;<a class="tips" data-tip="<?php _e( 'Line subtotals are before pre-tax discounts, totals are after.', 'woocommerce' ); ?>" href="#">[?]</a></th>
 
 					<?php if ( get_option( 'woocommerce_calc_taxes' ) == 'yes' ) : ?>
 						<th class="line_tax"><?php _e( 'Tax', 'woocommerce' ); ?></th>
@@ -393,7 +393,7 @@ function woocommerce_order_items_meta_box( $post ) {
 			</optgroup>
 		</select>
 
-		<button type="button" class="button do_bulk_action"><?php _e( 'Apply', 'woocommerce' ); ?></button>
+		<button type="button" class="button do_bulk_action wc-reload" title="<?php _e( 'Apply', 'woocommerce' ); ?>"><span><?php _e( 'Apply', 'woocommerce' ); ?></span></button>
 	</p>
 
 	<p class="add_items">
@@ -426,7 +426,7 @@ function woocommerce_order_actions_meta_box( $post ) {
 	?>
 	<ul class="order_actions submitbox">
 
-		<?php do_action( 'woocommerce_order_actions', $post->ID ); ?>
+		<?php do_action( 'woocommerce_order_actions_start', $post->ID ); ?>
 
 		<li class="wide" id="actions">
 			<select name="wc_order_action">
@@ -448,9 +448,12 @@ function woocommerce_order_actions_meta_box( $post ) {
 					}
 					?>
 				</optgroup>
+				<?php foreach( apply_filters( 'woocommerce_order_actions', array() ) as $action => $title ) { ?>
+					<option value="<?php echo $action; ?>"><?php echo $title; ?></option>
+				<?php } ?>
 			</select>
 
-			<button class="button"><?php _e( 'Apply', 'woocommerce' ); ?></button>
+			<button class="button wc-reload" title="<?php _e( 'Apply', 'woocommerce' ); ?>"><span><?php _e( 'Apply', 'woocommerce' ); ?></span></button>
 		</li>
 
 		<li class="wide">
@@ -466,6 +469,9 @@ function woocommerce_order_actions_meta_box( $post ) {
 
 			<input type="submit" class="button save_order button-primary tips" name="save" value="<?php _e( 'Save Order', 'woocommerce' ); ?>" data-tip="<?php _e( 'Save/update the order', 'woocommerce' ); ?>" />
 		</li>
+
+		<?php do_action( 'woocommerce_order_actions_end', $post->ID ); ?>
+
 	</ul>
 	<?php
 }
@@ -734,8 +740,12 @@ function woocommerce_process_shop_order_meta( $post_id, $post ) {
 	update_post_meta( $post_id, '_order_discount', woocommerce_clean( $_POST['_order_discount'] ) );
 	update_post_meta( $post_id, '_order_total', woocommerce_clean( $_POST['_order_total'] ) );
 	update_post_meta( $post_id, '_customer_user', absint( $_POST['customer_user'] ) );
-	update_post_meta( $post_id, '_order_tax', woocommerce_clean( $_POST['_order_tax'] ) );
-	update_post_meta( $post_id, '_order_shipping_tax', woocommerce_clean( $_POST['_order_shipping_tax'] ) );
+
+	if ( isset( $_POST['_order_tax'] ) )
+		update_post_meta( $post_id, '_order_tax', woocommerce_clean( $_POST['_order_tax'] ) );
+
+	if ( isset( $_POST['_order_shipping_tax'] ) )
+		update_post_meta( $post_id, '_order_shipping_tax', woocommerce_clean( $_POST['_order_shipping_tax'] ) );
 
 	// Shipping method handling
 	if ( get_post_meta( $post_id, '_shipping_method', true ) !== stripslashes( $_POST['_shipping_method'] ) ) {
@@ -874,6 +884,9 @@ function woocommerce_process_shop_order_meta( $post_id, $post ) {
 
 		 	if ( isset( $line_tax[ $item_id ] ) )
 		 		woocommerce_update_order_item_meta( $item_id, '_line_tax', woocommerce_clean( $line_tax[ $item_id ] ) );
+
+		 	// Clear meta cache
+		 	wp_cache_delete( $item_id, 'order_item_meta' );
 		}
 	}
 
@@ -924,7 +937,7 @@ function woocommerce_process_shop_order_meta( $post_id, $post ) {
 				}
 			}
 
-			do_action( 'woocommerce_after_resend_order_emails', $order, $resend_emails );
+			do_action( 'woocommerce_after_resend_order_email', $order, $email_to_send );
 
 		} else {
 

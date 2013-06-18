@@ -23,7 +23,7 @@ function woocommerce_duplicate_product_link_row($actions, $post) {
 	if ( function_exists( 'duplicate_post_plugin_activation' ) )
 		return $actions;
 
-	if ( ! current_user_can( 'manage_woocommerce' ) ) return $actions;
+	if ( ! current_user_can( apply_filters( 'woocommerce_duplicate_product_capability', 'manage_woocommerce' ) ) ) return $actions;
 
 	if ( $post->post_type != 'product' )
 		return $actions;
@@ -49,7 +49,7 @@ function woocommerce_duplicate_product_post_button() {
 
 	if ( function_exists( 'duplicate_post_plugin_activation' ) ) return;
 
-	if ( ! current_user_can( 'manage_woocommerce' ) ) return;
+	if ( ! current_user_can( apply_filters( 'woocommerce_duplicate_product_capability', 'manage_woocommerce' ) ) ) return $actions;
 
 	if ( ! is_object( $post ) ) return;
 
@@ -73,14 +73,15 @@ add_action( 'post_submitbox_start', 'woocommerce_duplicate_product_post_button' 
  * @param mixed $columns
  * @return array
  */
-function woocommerce_edit_product_columns( $columns ) {
+function woocommerce_edit_product_columns( $existing_columns ) {
 	global $woocommerce;
 
-	if ( empty( $columns ) && ! is_array( $columns ) )
-		$columns = array();
+	if ( empty( $existing_columns ) && ! is_array( $existing_columns ) )
+		$existing_columns = array();
 
-	unset( $columns['title'], $columns['comments'], $columns['date'] );
+	unset( $existing_columns['title'], $existing_columns['comments'], $existing_columns['date'] );
 
+	$columns = array();
 	$columns["cb"] = "<input type=\"checkbox\" />";
 	$columns["thumb"] = '<img src="' . $woocommerce->plugin_url() . '/assets/images/image.png" alt="' . __( 'Image', 'woocommerce' ) . '" class="tips" data-tip="' . __( 'Image', 'woocommerce' ) . '" width="14" height="14" />';
 
@@ -100,10 +101,10 @@ function woocommerce_edit_product_columns( $columns ) {
 	$columns["product_type"] = '<img src="' . $woocommerce->plugin_url() . '/assets/images/product_type_head.png" alt="' . __( 'Type', 'woocommerce' ) . '" class="tips" data-tip="' . __( 'Type', 'woocommerce' ) . '" width="14" height="12" />';
 	$columns["date"] = __( 'Date', 'woocommerce' );
 
-	return $columns;
+	return array_merge( $columns, $existing_columns );
 }
 
-add_filter('manage_edit-product_columns', 'woocommerce_edit_product_columns');
+add_filter( 'manage_edit-product_columns', 'woocommerce_edit_product_columns' );
 
 
 /**
@@ -290,7 +291,6 @@ add_action('manage_product_posts_custom_column', 'woocommerce_custom_product_col
  */
 function woocommerce_custom_product_sort($columns) {
 	$custom = array(
-		'is_in_stock' 	=> 'inventory',
 		'price'			=> 'price',
 		'featured'		=> 'featured',
 		'sku'			=> 'sku',
@@ -313,12 +313,6 @@ add_filter( 'manage_edit-product_sortable_columns', 'woocommerce_custom_product_
  */
 function woocommerce_custom_product_orderby( $vars ) {
 	if (isset( $vars['orderby'] )) :
-		if ( 'inventory' == $vars['orderby'] ) :
-			$vars = array_merge( $vars, array(
-				'meta_key' 	=> '_stock',
-				'orderby' 	=> 'meta_value_num'
-			) );
-		endif;
 		if ( 'price' == $vars['orderby'] ) :
 			$vars = array_merge( $vars, array(
 				'meta_key' 	=> '_price',
@@ -378,7 +372,7 @@ function woocommerce_products_by_type() {
 		$output = "<select name='product_type' id='dropdown_product_type'>";
 		$output .= '<option value="">'.__( 'Show all product types', 'woocommerce' ).'</option>';
 		foreach($terms as $term) :
-			$output .="<option value='$term->slug' ";
+			$output .="<option value='" . sanitize_title( $term->name ) . "' ";
 			if ( isset( $wp_query->query['product_type'] ) ) $output .=selected($term->slug, $wp_query->query['product_type'], false);
 			$output .=">";
 
@@ -473,24 +467,24 @@ add_filter( 'parse_query', 'woocommerce_admin_product_filter_query' );
 function woocommerce_admin_product_search( $wp ) {
     global $pagenow, $wpdb;
 
-	if( 'edit.php' != $pagenow ) return;
-	if( !isset( $wp->query_vars['s'] ) ) return;
-	if ($wp->query_vars['post_type']!='product') return;
+	if ( 'edit.php' != $pagenow ) return;
+	if ( ! isset( $wp->query_vars['s'] ) ) return;
+	if ( 'product' != $wp->query_vars['post_type'] ) return;
 
-	if( '#' == substr( $wp->query_vars['s'], 0, 1 ) ) :
+	if ( '#' == substr( $wp->query_vars['s'], 0, 1 ) ) {
 
 		$id = absint( substr( $wp->query_vars['s'], 1 ) );
 
-		if( !$id ) return;
+		if ( ! $id ) return;
 
 		unset( $wp->query_vars['s'] );
 		$wp->query_vars['p'] = $id;
 
-	elseif( 'SKU:' == substr( $wp->query_vars['s'], 0, 4 ) ) :
+	} elseif( 'SKU:' == strtoupper( substr( $wp->query_vars['s'], 0, 4 ) ) ) {
 
 		$sku = trim( substr( $wp->query_vars['s'], 4 ) );
 
-		if( !$sku ) return;
+		if ( ! $sku ) return;
 
 		$ids = $wpdb->get_col( 'SELECT post_id FROM ' . $wpdb->postmeta . ' WHERE meta_key="_sku" AND meta_value LIKE "%' . $sku . '%";' );
 
@@ -499,8 +493,7 @@ function woocommerce_admin_product_search( $wp ) {
 		unset( $wp->query_vars['s'] );
 		$wp->query_vars['post__in'] = $ids;
 		$wp->query_vars['sku'] = $sku;
-
-	endif;
+	}
 }
 
 
@@ -766,7 +759,7 @@ function woocommerce_admin_product_quick_edit_save( $post_id, $post ) {
 	}
 
 	// Clear transient
-	$woocommerce->clear_product_transients( $post_id );
+	$woocommerce->get_helper( 'transient' )->clear_product_transients( $post_id );
 }
 
 add_action( 'save_post', 'woocommerce_admin_product_quick_edit_save', 10, 2 );
@@ -787,6 +780,8 @@ function woocommerce_admin_product_bulk_edit( $column_name, $post_type ) {
 		<div id="woocommerce-fields-bulk" class="inline-edit-col">
 
 			<h4><?php _e( 'Product Data', 'woocommerce' ); ?></h4>
+
+			<?php do_action( 'woocommerce_product_bulk_edit_start' ); ?>
 
 			<div class="inline-edit-group">
 				<label class="alignleft">
@@ -981,7 +976,11 @@ function woocommerce_admin_product_bulk_edit( $column_name, $post_type ) {
 						<input type="text" name="_stock" class="text stock" placeholder="<?php _e( 'Stock Qty', 'woocommerce' ); ?>" value="">
 					</label>
 				</div>
-			<?php endif; ?>
+
+			<?php endif;
+
+			do_action( 'woocommerce_product_bulk_edit_end' ); ?>
+
 			<input type="hidden" name="woocommerce_bulk_edit_nonce" value="<?php echo wp_create_nonce( 'woocommerce_bulk_edit_nonce' ); ?>" />
 		</div>
 	</fieldset>
@@ -1154,8 +1153,10 @@ function woocommerce_admin_product_bulk_edit_save( $post_id, $post ) {
 
 	}
 
+	do_action( 'woocommerce_product_bulk_edit_save', $product );
+
 	// Clear transient
-	$woocommerce->clear_product_transients( $post_id );
+	$woocommerce->get_helper( 'transient' )->clear_product_transients( $post_id );
 }
 
 add_action( 'save_post', 'woocommerce_admin_product_bulk_edit_save', 10, 2 );

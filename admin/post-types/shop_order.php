@@ -132,7 +132,7 @@ function woocommerce_custom_order_columns( $column ) {
 			} else {
 				$t_time = get_the_time( __( 'Y/m/d g:i:s A', 'woocommerce' ), $post );
 
-				$gmt_time = strtotime( $post->post_date_gmt );
+				$gmt_time = strtotime( $post->post_date_gmt . ' UTC' );
 				$time_diff = current_time('timestamp', 1) - $gmt_time;
 
 				if ( $time_diff > 0 && $time_diff < 24*60*60 )
@@ -153,24 +153,24 @@ function woocommerce_custom_order_columns( $column ) {
 					$actions = array();
 
 					if ( in_array( $the_order->status, array( 'pending', 'on-hold' ) ) )
-						$actions[] = array(
+						$actions['processing'] = array(
 							'url' 		=> wp_nonce_url( admin_url( 'admin-ajax.php?action=woocommerce-mark-order-processing&order_id=' . $post->ID ), 'woocommerce-mark-order-processing' ),
 							'name' 		=> __( 'Processing', 'woocommerce' ),
 							'action' 	=> "processing"
 						);
 
 					if ( in_array( $the_order->status, array( 'pending', 'on-hold', 'processing' ) ) )
-						$actions[] = array(
+						$actions['complete'] = array(
 							'url' 		=> wp_nonce_url( admin_url( 'admin-ajax.php?action=woocommerce-mark-order-complete&order_id=' . $post->ID ), 'woocommerce-mark-order-complete' ),
 							'name' 		=> __( 'Complete', 'woocommerce' ),
 							'action' 	=> "complete"
 						);
 
-					$actions[] = array(
-							'url' 		=> admin_url( 'post.php?post=' . $post->ID . '&action=edit' ),
-							'name' 		=> __( 'View', 'woocommerce' ),
-							'action' 	=> "view"
-						);
+					$actions['view'] = array(
+						'url' 		=> admin_url( 'post.php?post=' . $post->ID . '&action=edit' ),
+						'name' 		=> __( 'View', 'woocommerce' ),
+						'action' 	=> "view"
+					);
 
 					$actions = apply_filters( 'woocommerce_admin_order_actions', $actions, $the_order );
 
@@ -310,7 +310,7 @@ function woocommerce_restrict_manage_orders() {
 	</select>
 	<?php
 
-	$woocommerce->add_inline_js( "
+	$woocommerce->get_helper( 'inline-javascript' )->add_inline_js( "
 
 		jQuery('select#dropdown_shop_order_status, select[name=m]').css('width', '150px').chosen();
 
@@ -462,28 +462,6 @@ function woocommerce_shop_order_search_custom_fields( $wp ) {
 				SELECT order_id
 				FROM {$wpdb->prefix}woocommerce_order_items as order_items
 				WHERE order_item_name LIKE '%%%s%%'
-				",
-				esc_attr( $_GET['s'] )
-			)
-		),
-		$wpdb->get_col(
-			$wpdb->prepare( "
-				SELECT posts.ID
-				FROM {$wpdb->posts} as posts
-				LEFT JOIN {$wpdb->postmeta} as postmeta ON posts.ID = postmeta.post_id
-				LEFT JOIN {$wpdb->users} as users ON postmeta.meta_value = users.ID
-				WHERE
-					post_excerpt 	LIKE '%%%1\$s%%' OR
-					post_title 		LIKE '%%%1\$s%%' OR
-					(
-						meta_key		= '_customer_user' AND
-						(
-							user_login		LIKE '%%%1\$s%%' OR
-							user_nicename	LIKE '%%%1\$s%%' OR
-							user_email		LIKE '%%%1\$s%%' OR
-							display_name	LIKE '%%%1\$s%%'
-						)
-					)
 				",
 				esc_attr( $_GET['s'] )
 			)

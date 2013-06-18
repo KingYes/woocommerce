@@ -39,10 +39,10 @@ function woocommerce_coupon_data_meta_box( $post ) {
 			echo '</div><div class="options_group">';
 
 			// Type
-    		woocommerce_wp_select( array( 'id' => 'discount_type', 'label' => __( 'Discount type', 'woocommerce' ), 'options' => $woocommerce->get_coupon_discount_types() ) );
+    		woocommerce_wp_select( array( 'id' => 'discount_type', 'label' => __( 'Discount type', 'woocommerce' ), 'options' => $woocommerce->get_helper( 'coupon' )->get_coupon_discount_types() ) );
 
 			// Amount
-			woocommerce_wp_text_input( array( 'id' => 'coupon_amount', 'label' => __( 'Coupon amount', 'woocommerce' ), 'placeholder' => '0.00', 'description' => __( 'Enter an amount or percentage e.g. 2.99 or 15%', 'woocommerce' ), 'type' => 'number', 'custom_attributes' => array(
+			woocommerce_wp_text_input( array( 'id' => 'coupon_amount', 'label' => __( 'Coupon amount', 'woocommerce' ), 'placeholder' => '0.00', 'description' => __( 'Value of the coupon.', 'woocommerce' ), 'type' => 'number', 'custom_attributes' => array(
 					'step' 	=> 'any',
 					'min'	=> '0'
 				)  ) );
@@ -79,10 +79,9 @@ function woocommerce_coupon_data_meta_box( $post ) {
 						$product_ids = array_map( 'absint', explode( ',', $product_ids ) );
 						foreach ( $product_ids as $product_id ) {
 
-							$product      = get_product( $product_id );
-							$product_name = woocommerce_get_formatted_product_name( $product );
+							$product = get_product( $product_id );
 
-							echo '<option value="' . esc_attr( $product_id ) . '" selected="selected">' . esc_html( $product_name ) . '</option>';
+							echo '<option value="' . esc_attr( $product_id ) . '" selected="selected">' . wp_kses_post( $product->get_formatted_name() ) . '</option>';
 						}
 					}
 				?>
@@ -99,10 +98,9 @@ function woocommerce_coupon_data_meta_box( $post ) {
 						$product_ids = array_map( 'absint', explode( ',', $product_ids ) );
 						foreach ( $product_ids as $product_id ) {
 
-							$product      = get_product( $product_id );
-							$product_name = woocommerce_get_formatted_product_name( $product );
+							$product = get_product( $product_id );
 
-							echo '<option value="' . esc_attr( $product_id ) . '" selected="selected">' . esc_html( $product_name ) . '</option>';
+							echo '<option value="' . esc_attr( $product_id ) . '" selected="selected">' . esc_html( $product->get_formatted_name() ) . '</option>';
 						}
 					}
 				?>
@@ -142,7 +140,7 @@ function woocommerce_coupon_data_meta_box( $post ) {
 			echo '</div><div class="options_group">';
 
 			// Customers
-			woocommerce_wp_text_input( array( 'id' => 'customer_email', 'label' => __( 'Customer emails', 'woocommerce' ), 'placeholder' => __( 'Any customer', 'woocommerce' ), 'description' => __( 'Comma separate email addresses to restrict this coupon to specific billing and user emails.', 'woocommerce' ), 'value' => implode(', ', (array) get_post_meta( $post->ID, 'customer_email', true ) ), 'type' => 'email', 'custom_attributes' => array(
+			woocommerce_wp_text_input( array( 'id' => 'customer_email', 'label' => __( 'Email restrictions', 'woocommerce' ), 'placeholder' => __( 'No restrictions', 'woocommerce' ), 'description' => __( 'List of emails to check against the customer\'s billing email when an order is placed.', 'woocommerce' ), 'value' => implode(', ', (array) get_post_meta( $post->ID, 'customer_email', true ) ), 'type' => 'email', 'custom_attributes' => array(
 					'multiple' 	=> 'multiple'
 				) ) );
 
@@ -237,7 +235,8 @@ function woocommerce_process_shop_coupon_meta( $post_id, $post ) {
 	update_post_meta( $post_id, 'minimum_amount', $minimum_amount );
 	update_post_meta( $post_id, 'customer_email', $customer_email );
 
-	do_action( 'woocommerce_coupon_options' );
+	/* Deprecated - same hook name as in the meta */ do_action( 'woocommerce_coupon_options' );
+	do_action( 'woocommerce_coupon_options_save' );
 }
 
 add_action( 'woocommerce_process_shop_coupon_meta', 'woocommerce_process_shop_coupon_meta', 1, 2 );

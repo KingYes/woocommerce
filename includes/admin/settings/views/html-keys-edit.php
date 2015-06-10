@@ -1,0 +1,106 @@
+<?php
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+?>
+
+<div id="key-fields" class="settings-panel">
+	<h3><?php _e( 'Key Details', 'woocommerce' ); ?></h3>
+
+	<input type="hidden" id="key_id" value="<?php echo esc_attr( $key_id ); ?>" />
+
+	<table id="api-keys-options" class="form-table">
+		<tbody>
+			<tr valign="top">
+				<th scope="row" class="titledesc">
+					<label for="key_description"><?php _e( 'Description', 'woocommerce' ); ?></label>
+					<img class="help_tip" data-tip="<?php esc_attr_e( 'Friendly name for identifying this key.', 'woocommerce' ); ?>" src="<?php echo WC()->plugin_url(); ?>/assets/images/help.png" height="16" width="16" />
+				</th>
+				<td class="forminp">
+					<input id="key_description" type="text" class="input-text regular-input" value="<?php echo esc_attr( $key_data['description'] ); ?>" />
+				</td>
+			</tr>
+			<tr valign="top">
+				<th scope="row" class="titledesc">
+					<label for="key_user"><?php _e( 'User', 'woocommerce' ); ?></label>
+					<img class="help_tip" data-tip="<?php _e( 'Owner of these keys.', 'woocommerce' ); ?>" src="<?php echo WC()->plugin_url(); ?>/assets/images/help.png" height="16" width="16" />
+				</th>
+				<td class="forminp">
+					<?php
+						$curent_user_id = get_current_user_id();
+						$user_id        = ! empty( $key_data['user_id'] ) ? absint( $key_data['user_id'] ) : $curent_user_id;
+						$user           = get_user_by( 'id', $user_id );
+						$user_string    = esc_html( $user->display_name ) . ' (#' . absint( $user->ID ) . ' &ndash; ' . esc_html( $user->user_email );
+					?>
+					<input type="hidden" class="wc-customer-search" id="key_user" data-placeholder="<?php esc_html_e( 'Search for a customer&hellip;', 'woocommerce' ); ?>" data-selected="<?php echo esc_attr( $user_string ); ?>" value="<?php echo esc_attr( $user_id ); ?>" data-allow_clear="true" />
+				</td>
+			</tr>
+			<tr valign="top">
+				<th scope="row" class="titledesc">
+					<label for="key_permissions"><?php _e( 'Permissons', 'woocommerce' ); ?></label>
+					<img class="help_tip" data-tip="<?php _e( 'Select the access type of these keys.', 'woocommerce' ); ?>" src="<?php echo WC()->plugin_url(); ?>/assets/images/help.png" height="16" width="16" />
+				</th>
+				<td class="forminp">
+					<select id="key_permissions" class="wc-enhanced-select">
+						<?php
+							$permissions = array(
+								'read'       => __( 'Read', 'woocommerce' ),
+								'write'      => __( 'Write', 'woocommerce' ),
+								'read_write' => __( 'Read/Write', 'woocommerce' ),
+							);
+
+							foreach ( $permissions as $permission_id => $permission_name ) : ?>
+							<option value="<?php echo esc_attr( $permission_id ); ?>" <?php selected( $key_data['permissions'], $permission_id, true ); ?>><?php echo esc_html( $permission_name ); ?></option>
+						<?php endforeach; ?>
+					</select>
+				</td>
+			</tr>
+		</tbody>
+	</table>
+
+	<?php do_action( 'woocommerce_admin_key_fields', $key_data ); ?>
+
+	<?php
+		if ( 0 == $key_id ) {
+			submit_button( __( 'Generate API Key', 'woocommerce' ), 'primary', 'update_api_key' );
+		} else {
+			?>
+			<p class="submit">
+				<?php submit_button( __( 'Save Changes', 'woocommerce' ), 'primary', 'update_api_key', false ); ?>
+				<a style="color: #a00; text-decoration: none; margin-left: 10px;" href="<?php echo esc_url( wp_nonce_url( add_query_arg( array( 'revoke-key' => $key_id ), admin_url( 'admin.php?page=wc-settings&tab=api&section=keys' ) ), 'revoke' ) ); ?>"><?php _e( 'Revoke Key', 'woocommerce' ); ?></a>
+			</p>
+			<?php
+		}
+	?>
+</div>
+
+<script type="text/template" id="api-keys-template">
+	<table class="form-table">
+		<tbody>
+			<tr valign="top">
+				<th scope="row" class="titledesc">
+					<?php _e( 'Consumer Key', 'woocommerce' ); ?>
+				</th>
+				<td class="forminp">
+					<code id="key_consumer_key"><%- consumer_key %></code> <button type="button" class="button-secondary copy-key" data-tip="<?php _e( 'Copied!', 'woocommerce' ); ?>"><?php _e( 'Copy', 'woocommerce' ); ?></button>
+				</td>
+			</tr>
+			<tr valign="top">
+				<th scope="row" class="titledesc">
+					<label for="key_consumer_secret"><?php _e( 'Consumer Secret', 'woocommerce' ); ?></label>
+				</th>
+				<td class="forminp">
+					<code id="key_consumer_secret"><%- consumer_secret %></code> <button type="button" class="button-secondary copy-key" data-tip="<?php _e( 'Copied!', 'woocommerce' ); ?>"><?php _e( 'Copy', 'woocommerce' ); ?></button>
+				</td>
+			</tr>
+			<tr valign="top">
+				<th scope="row" class="titledesc">
+					<?php _e( 'QRCode', 'woocommerce' ); ?>
+				</th>
+				<td class="forminp">
+					<div id="keys-qrcode"></div>
+				</td>
+			</tr>
+		</tbody>
+	</table>
+</script>

@@ -84,11 +84,6 @@ class WC_API_Products extends WC_API_Resource {
 			array( array( $this, 'delete_product_attribute' ), WC_API_Server::DELETABLE ),
 		);
 
-		# GET /products/sku/<product sku>
-		$routes[ $this->base . '/sku/(?P<sku>\w[\w\s\-]*)' ] = array(
-			array( array( $this, 'get_product_by_sku' ), WC_API_Server::READABLE ),
-		);
-
 		# POST|PUT /products/bulk
 		$routes[ $this->base . '/bulk' ] = array(
 			array( array( $this, 'bulk' ), WC_API_Server::EDITABLE | WC_API_Server::ACCEPT_DATA ),
@@ -161,7 +156,7 @@ class WC_API_Products extends WC_API_Resource {
 		}
 
 		// add the parent product data to an individual variation
-		if ( $product->is_type( 'variation' ) ) {
+		if ( $product->is_type( 'variation' ) && $product->parent ) {
 
 			$product_data['parent'] = $this->get_product_data( $product->parent );
 		}
@@ -646,7 +641,7 @@ class WC_API_Products extends WC_API_Resource {
 			'tax_status'         => $product->get_tax_status(),
 			'tax_class'          => $product->get_tax_class(),
 			'managing_stock'     => $product->managing_stock(),
-			'stock_quantity'     => (int) $product->get_stock_quantity(),
+			'stock_quantity'     => $product->get_stock_quantity(),
 			'in_stock'           => $product->is_in_stock(),
 			'backorders_allowed' => $product->backorders_allowed(),
 			'backordered'        => $product->is_on_backorder(),
@@ -728,7 +723,7 @@ class WC_API_Products extends WC_API_Resource {
 					'tax_status'        => $variation->get_tax_status(),
 					'tax_class'         => $variation->get_tax_class(),
 					'managing_stock'    => $variation->managing_stock(),
-					'stock_quantity'    => (int) $variation->get_stock_quantity(),
+					'stock_quantity'    => $variation->get_stock_quantity(),
 					'in_stock'          => $variation->is_in_stock(),
 					'backordered'       => $variation->is_on_backorder(),
 					'purchaseable'      => $variation->is_purchasable(),
@@ -970,7 +965,8 @@ class WC_API_Products extends WC_API_Resource {
 			}
 
 			if ( $date_to && ! $date_from ) {
-				update_post_meta( $product_id, '_sale_price_dates_from', strtotime( 'NOW', current_time( 'timestamp' ) ) );
+				$date_from = strtotime( 'NOW', current_time( 'timestamp' ) );
+				update_post_meta( $product_id, '_sale_price_dates_from', $date_from );
 			}
 
 			// Update price if on sale
@@ -980,7 +976,7 @@ class WC_API_Products extends WC_API_Resource {
 				update_post_meta( $product_id, '_price', $regular_price );
 			}
 
-			if ( '' !== $sale_price && $date_from && $date_from < strtotime( 'NOW', current_time( 'timestamp' ) ) ) {
+			if ( '' !== $sale_price && $date_from && $date_from <= strtotime( 'NOW', current_time( 'timestamp' ) ) ) {
 				update_post_meta( $product_id, '_price', wc_format_decimal( $sale_price ) );
 			}
 
@@ -1466,11 +1462,17 @@ class WC_API_Products extends WC_API_Resource {
 					}
 
 					if ( isset( $_attribute['is_variation'] ) && $_attribute['is_variation'] ) {
-						$attribute_key   = 'attribute_' . sanitize_title( $_attribute['name'] );
-						$attribute_value = isset( $attribute['option'] ) ? sanitize_title( stripslashes( $attribute['option'] ) ) : '';
-						$updated_attribute_keys[] = $attribute_key;
+						$_attribute_key           = 'attribute_' . sanitize_title( $_attribute['name'] );
+						$updated_attribute_keys[] = $_attribute_key;
 
-						update_post_meta( $variation_id, $attribute_key, $attribute_value );
+						if ( isset( $_attribute['is_taxonomy'] ) && $_attribute['is_taxonomy'] ) {
+							// Don't use wc_clean as it destroys sanitized characters
+							$_attribute_value = isset( $attribute['option'] ) ? sanitize_title( stripslashes( $attribute['option'] ) ) : '';
+						} else {
+							$_attribute_value = isset( $attribute['option'] ) ? wc_clean( stripslashes( $attribute['option'] ) ) : '';
+						}
+
+						update_post_meta( $variation_id, $_attribute_key, $_attribute_value );
 					}
 				}
 
@@ -1511,11 +1513,15 @@ class WC_API_Products extends WC_API_Resource {
 					$_attribute = $attributes[ $taxonomy ];
 
 					if ( $_attribute['is_variation'] ) {
-						// Don't use wc_clean as it destroys sanitized characters
+						$value = '';
+
 						if ( isset( $default_attr['option'] ) ) {
-							$value = sanitize_title( trim( stripslashes( $default_attr['option'] ) ) );
-						} else {
-							$value = '';
+							if ( $_attribute['is_taxonomy'] ) {
+								// Don't use wc_clean as it destroys sanitized characters
+								$value = sanitize_title( trim( stripslashes( $default_attr['option'] ) ) );
+							} else {
+								$value = wc_clean( trim( stripslashes( $default_attr['option'] ) ) );
+							}
 						}
 
 						if ( $value ) {
@@ -1537,7 +1543,6 @@ class WC_API_Products extends WC_API_Resource {
 	 * @since 2.2
 	 * @param int $id
 	 * @param array $data
-	 * @return void
 	 */
 	private function save_product_shipping_data( $id, $data ) {
 		if ( isset( $data['weight'] ) ) {
@@ -1587,7 +1592,6 @@ class WC_API_Products extends WC_API_Resource {
 	 * @param int $product_id
 	 * @param array $downloads
 	 * @param int $variation_id
-	 * @return void
 	 */
 	private function save_downloadable_files( $product_id, $downloads, $variation_id = 0 ) {
 		$files = array();
@@ -1603,7 +1607,12 @@ class WC_API_Products extends WC_API_Resource {
 			}
 
 			$file_name = isset( $file['name'] ) ? wc_clean( $file['name'] ) : '';
-			$file_url  = wc_clean( $file['file'] );
+
+			if ( 0 === strpos( $file['file'], 'http' ) ) {
+				$file_url = esc_url_raw( $file['file'] );
+			} else {
+				$file_url = wc_clean( $file['file'] );
+			}
 
 			$files[ md5( $file_url ) ] = array(
 				'name' => $file_name,
@@ -1734,7 +1743,7 @@ class WC_API_Products extends WC_API_Resource {
 					$attachment_id = isset( $image['id'] ) ? absint( $image['id'] ) : 0;
 
 					if ( 0 === $attachment_id && isset( $image['src'] ) ) {
-						$upload = $this->upload_product_image( wc_clean( $image['src'] ) );
+						$upload = $this->upload_product_image( esc_url_raw( $image['src'] ) );
 
 						if ( is_wp_error( $upload ) ) {
 							throw new WC_API_Exception( 'woocommerce_api_cannot_upload_product_image', $upload->get_error_message(), 400 );
@@ -1748,7 +1757,7 @@ class WC_API_Products extends WC_API_Resource {
 					$attachment_id = isset( $image['id'] ) ? absint( $image['id'] ) : 0;
 
 					if ( 0 === $attachment_id && isset( $image['src'] ) ) {
-						$upload = $this->upload_product_image( wc_clean( $image['src'] ) );
+						$upload = $this->upload_product_image( esc_url_raw( $image['src'] ) );
 
 						if ( is_wp_error( $upload ) ) {
 							throw new WC_API_Exception( 'woocommerce_api_cannot_upload_product_image', $upload->get_error_message(), 400 );
@@ -2287,34 +2296,10 @@ class WC_API_Products extends WC_API_Resource {
 	}
 
 	/**
-	 * Get product by SKU
-	 *
-	 * @deprecated 2.4.0
-	 *
-	 * @since  2.3.0
-	 * @param  int    $sku the product SKU
-	 * @param  string $fields
-	 * @return array
-	 */
-	public function get_product_by_sku( $sku, $fields = null ) {
-		try {
-			$id = wc_get_product_id_by_sku( $sku );
-
-			if ( empty( $id ) ) {
-				throw new WC_API_Exception( 'woocommerce_api_invalid_product_sku', __( 'Invalid product SKU', 'woocommerce' ), 404 );
-			}
-
-			return $this->get_product( $id, $fields );
-		} catch ( WC_API_Exception $e ) {
-			return new WP_Error( $e->getErrorCode(), $e->getMessage(), array( 'status' => $e->getCode() ) );
-		}
-	}
-
-	/**
 	 * Clear product
 	 */
 	protected function clear_product( $product_id ) {
-		if ( 0 >= $product_id ) {
+		if ( ! is_numeric( $product_id ) || 0 >= $product_id ) {
 			return;
 		}
 

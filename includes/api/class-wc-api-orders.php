@@ -224,7 +224,7 @@ class WC_API_Orders extends WC_API_Resource {
 				$product_sku = $product->get_sku();
 			}
 
-			$meta = new WC_Order_Item_Meta( $item['item_meta'], $product );
+			$meta = new WC_Order_Item_Meta( $item, $product );
 
 			$item_meta = array();
 
@@ -980,10 +980,11 @@ class WC_API_Orders extends WC_API_Resource {
 	 * Given a product ID & API provided variations, find the correct variation ID to use for calculation
 	 * We can't just trust input from the API to pass a variation_id manually, otherwise you could pass
 	 * the cheapest variation ID but provide other information so we have to look up the variation ID.
-	 * @param  int $product_id main product ID
-	 * @return int             returns an ID if a valid variation was found for this product
+	 *
+	 * @param  WC_Product $product Product instance
+	 * @return int                 Returns an ID if a valid variation was found for this product
 	 */
-	function get_variation_id( $product, $variations = array() ) {
+	public function get_variation_id( $product, $variations = array() ) {
 		$variation_id = null;
 		$variations_normalized = array();
 
@@ -1542,7 +1543,7 @@ class WC_API_Orders extends WC_API_Resource {
 			foreach ( $refund->get_items( 'line_item' ) as $item_id => $item ) {
 
 				$product   = $order->get_product_from_item( $item );
-				$meta      = new WC_Order_Item_Meta( $item['item_meta'], $product );
+				$meta      = new WC_Order_Item_Meta( $item, $product );
 				$item_meta = array();
 
 				foreach ( $meta->get_formatted() as $meta_key => $formatted_meta ) {

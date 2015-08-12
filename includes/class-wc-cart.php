@@ -149,7 +149,7 @@ class WC_Cart {
 				$this->tax = new WC_Tax();
 			return $this->tax;
 			case 'discount_total':
-				_deprecated_argument( 'WC_Cart->discount_total', '2.3', 'After tax coupons are no longer supported. For more information see: http://develop.woothemes.com/woocommerce/2014/12/upcoming-coupon-changes-in-woocommerce-2-3/' );
+				_deprecated_argument( 'WC_Cart->discount_total', '2.3', 'After tax coupons are no longer supported. For more information see: https://woocommerce.wordpress.com/2014/12/upcoming-coupon-changes-in-woocommerce-2-3/' );
 			return 0;
 		}
 	}
@@ -567,32 +567,27 @@ class WC_Cart {
 				}
 			}
 
-			// Other data - returned as array with name/value values
-			$other_data = apply_filters( 'woocommerce_get_item_data', array(), $cart_item );
+			// Filter item data to allow 3rd parties to add more to the array
+			$item_data = apply_filters( 'woocommerce_get_item_data', $item_data, $cart_item );
 
-			if ( $other_data && is_array( $other_data ) && sizeof( $other_data ) > 0 ) {
-
-				foreach ( $other_data as $data ) {
-					// Set hidden to true to not display meta on cart.
-					if ( empty( $data['hidden'] ) ) {
-						$display_value = ! empty( $data['display'] ) ? $data['display'] : $data['value'];
-
-						$item_data[] = array(
-							'key'   => $data['name'],
-							'value' => $display_value
-						);
-					}
+			// Format item data ready to display
+			foreach ( $item_data as $key => $data ) {
+				// Set hidden to true to not display meta on cart.
+				if ( ! empty( $data['hidden'] ) ) {
+					unset( $item_data[ $key ] );
+					continue;
 				}
+				$item_data[ $key ]['key']     = ! empty( $data['key'] ) ? $data['key'] : $data['name'];
+				$item_data[ $key ]['display'] = ! empty( $data['display'] ) ? $data['display'] : $data['value'];
 			}
 
 			// Output flat or in list format
 			if ( sizeof( $item_data ) > 0 ) {
-
 				ob_start();
 
 				if ( $flat ) {
 					foreach ( $item_data as $data ) {
-						echo esc_html( $data['key'] ) . ': ' . wp_kses_post( $data['value'] ) . "\n";
+						echo esc_html( $data['key'] ) . ': ' . wp_kses_post( $data['display'] ) . "\n";
 					}
 				} else {
 					wc_get_template( 'cart/cart-item-data.php', array( 'item_data' => $item_data ) );
@@ -630,8 +625,7 @@ class WC_Cart {
 		 * @return string url to page
 		 */
 		public function get_cart_url() {
-			$cart_page_id = wc_get_page_id( 'cart' );
-			return apply_filters( 'woocommerce_get_cart_url', $cart_page_id ? get_permalink( $cart_page_id ) : '' );
+			return apply_filters( 'woocommerce_get_cart_url', wc_get_page_permalink( 'cart' ) );
 		}
 
 		/**
@@ -640,19 +634,13 @@ class WC_Cart {
 		 * @return string url to page
 		 */
 		public function get_checkout_url() {
-			$checkout_page_id = wc_get_page_id( 'checkout' );
-			$checkout_url     = '';
-			if ( $checkout_page_id ) {
-
-				// Get the checkout URL
-				$checkout_url = get_permalink( $checkout_page_id );
-
+			$checkout_url = wc_get_page_permalink( 'checkout' );
+			if ( $checkout_url ) {
 				// Force SSL if needed
 				if ( is_ssl() || 'yes' === get_option( 'woocommerce_force_ssl_checkout' ) ) {
 					$checkout_url = str_replace( 'http:', 'https:', $checkout_url );
 				}
 			}
-
 			return apply_filters( 'woocommerce_get_checkout_url', $checkout_url );
 		}
 
@@ -663,8 +651,8 @@ class WC_Cart {
 		 * @return string url to page
 		 */
 		public function get_remove_url( $cart_item_key ) {
-			$cart_page_id = wc_get_page_id('cart');
-			return apply_filters( 'woocommerce_get_remove_url', $cart_page_id ? wp_nonce_url( add_query_arg( 'remove_item', $cart_item_key, get_permalink( $cart_page_id ) ), 'woocommerce-cart' ) : '' );
+			$cart_page_url = wc_get_page_permalink( 'cart' );
+			return apply_filters( 'woocommerce_get_remove_url', $cart_page_url ? wp_nonce_url( add_query_arg( 'remove_item', $cart_item_key, $cart_page_url ), 'woocommerce-cart' ) : '' );
 		}
 
 		/**
@@ -674,13 +662,13 @@ class WC_Cart {
 		 * @return string url to page
 		 */
 		public function get_undo_url( $cart_item_key ) {
-			$cart_page_id = wc_get_page_id( 'cart' );
+			$cart_page_url = wc_get_page_permalink( 'cart' );
 
 			$query_args = array(
 				'undo_item' => $cart_item_key,
 			);
 
-			return apply_filters( 'woocommerce_get_undo_url', $cart_page_id ? wp_nonce_url( add_query_arg( $query_args, get_permalink( $cart_page_id ) ), 'woocommerce-cart' ) : '' );
+			return apply_filters( 'woocommerce_get_undo_url', $cart_page_url ? wp_nonce_url( add_query_arg( $query_args, $cart_page_url ), 'woocommerce-cart' ) : '' );
 		}
 
 		/**
@@ -1309,9 +1297,6 @@ class WC_Cart {
 				$this->cart_contents[ $cart_item_key ]['line_tax_data']     = array( 'total' => $discounted_taxes, 'subtotal' => $taxes );
 			}
 
-			// Round cart contents
-			$this->cart_contents_total = round( $this->cart_contents_total, $this->dp );
-
 			// Only calculate the grand total + shipping if on the cart/checkout
 			if ( is_checkout() || is_cart() || defined('WOOCOMMERCE_CHECKOUT') || defined('WOOCOMMERCE_CART') ) {
 
@@ -1758,7 +1743,7 @@ class WC_Cart {
 				$discount_amount += $this->get_coupon_discount_tax_amount( $code );
 			}
 
-			return round( $discount_amount, $this->dp, WC_DISCOUNT_ROUNDING_MODE );
+			return wc_cart_round_discount( $discount_amount, $this->dp );
 		}
 
 		/**
@@ -1768,7 +1753,7 @@ class WC_Cart {
 		 * @return float discount amount
 		 */
 		public function get_coupon_discount_tax_amount( $code ) {
-			return round( isset( $this->coupon_discount_tax_amounts[ $code ] ) ? $this->coupon_discount_tax_amounts[ $code ] : 0, $this->dp, WC_DISCOUNT_ROUNDING_MODE );
+			return wc_cart_round_discount( isset( $this->coupon_discount_tax_amounts[ $code ] ) ? $this->coupon_discount_tax_amounts[ $code ] : 0, $this->dp );
 		}
 
 		/**
@@ -1788,17 +1773,21 @@ class WC_Cart {
 		 */
 		public function remove_coupon( $coupon_code ) {
 			// Coupons are globally disabled
-			if ( ! $this->coupons_enabled() )
+			if ( ! $this->coupons_enabled() ) {
 				return false;
+			}
 
 			// Get the coupon
 			$coupon_code  = apply_filters( 'woocommerce_coupon_code', $coupon_code );
 			$position     = array_search( $coupon_code, $this->applied_coupons );
 
-			if ( $position !== false )
+			if ( $position !== false ) {
 				unset( $this->applied_coupons[ $position ] );
+			}
 
 			WC()->session->set( 'applied_coupons', $this->applied_coupons );
+
+			do_action( 'woocommerce_removed_coupon', $coupon_code );
 
 			return true;
 		}
@@ -2164,7 +2153,7 @@ class WC_Cart {
 		 * @return float
 		 */
 		public function get_cart_discount_total() {
-			return round( $this->discount_cart, $this->dp, WC_DISCOUNT_ROUNDING_MODE );
+			return wc_cart_round_discount( $this->discount_cart, $this->dp );
 		}
 
 		/**
@@ -2173,7 +2162,7 @@ class WC_Cart {
 		 * @return float
 		 */
 		public function get_cart_discount_tax_total() {
-			return round( $this->discount_cart_tax, $this->dp, WC_DISCOUNT_ROUNDING_MODE );
+			return wc_cart_round_discount( $this->discount_cart_tax, $this->dp );
 		}
 
 		/**

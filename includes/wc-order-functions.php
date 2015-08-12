@@ -300,7 +300,6 @@ function wc_downloadable_file_permission( $download_id, $product_id, $order, $qt
  *
  * @access public
  * @param int $order_id
- * @return void
  */
 function wc_downloadable_product_permissions( $order_id ) {
 	if ( get_post_meta( $order_id, '_download_permissions_granted', true ) == 1 ) {
@@ -482,7 +481,6 @@ function wc_get_order_item_meta( $item_id, $key, $single = true ) {
  * Cancel all unpaid orders after held duration to prevent stock lock for those products
  *
  * @access public
- * @return void
  */
 function wc_cancel_unpaid_orders() {
 	global $wpdb;
@@ -612,6 +610,11 @@ function wc_create_refund( $args = array() ) {
 	$args        = wp_parse_args( $args, $default_args );
 	$refund_data = array();
 
+	// prevent negative refunds
+	if ( 0 > $args['amount'] ) {
+		$args['amount'] = 0;
+	}
+
 	if ( $args['refund_id'] > 0 ) {
 		$updating          = true;
 		$refund_data['ID'] = $args['refund_id'];
@@ -714,7 +717,15 @@ function wc_create_refund( $args = array() ) {
 		// Set total to total refunded which may vary from order items
 		$refund->set_total( wc_format_decimal( $args['amount'] ) * -1, 'total' );
 
-		do_action( 'woocommerce_refund_created', $refund_id );
+		// Figure out if this is just a partial refund
+		$max_remaining_refund = wc_format_decimal( $order->get_total() - $order->get_total_refunded() );
+		$max_remaining_items  = absint( $order->get_item_count() - $order->get_item_count_refunded() );
+
+		if ( $max_remaining_refund > 0 || $max_remaining_items > 0 ) {
+			do_action( 'woocommerce_order_partially_refunded', $args['order_id'], true, $refund_id );
+		}
+
+		do_action( 'woocommerce_refund_created', $refund_id, $args );
 	}
 
 	// Clear transients
@@ -754,7 +765,7 @@ function wc_get_payment_gateway_by_order( $order ) {
 
 	if ( ! is_object( $order ) ) {
 		$order_id = absint( $order );
-		$order    = new WC_Order( $order_id );
+		$order    = wc_get_order( $order_id );
 	}
 
 	return isset( $payment_gateways[ $order->payment_method ] ) ? $payment_gateways[ $order->payment_method ] : false;

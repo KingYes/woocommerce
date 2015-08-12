@@ -55,7 +55,7 @@ abstract class WC_Widget extends WP_Widget {
 			'description' => $this->widget_description
 		);
 
-		$this->WP_Widget( $this->widget_id, $this->widget_name, $widget_ops );
+		parent::__construct( $this->widget_id, $this->widget_name, $widget_ops );
 
 		add_action( 'save_post', array( $this, 'flush_widget_cache' ) );
 		add_action( 'deleted_post', array( $this, 'flush_widget_cache' ) );
@@ -96,8 +96,6 @@ abstract class WC_Widget extends WP_Widget {
 
 	/**
 	 * Flush the cache
-	 *
-	 * @return void
 	 */
 	public function flush_widget_cache() {
 		wp_cache_delete( apply_filters( 'woocommerce_cached_widget_id', $this->widget_id ), 'widget' );

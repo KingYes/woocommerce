@@ -13,16 +13,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
+ * Gets text attributes from a string
+ *
+ * @since  2.4
+ * @return array
+ */
+function wc_get_text_attributes( $raw_attributes ) {
+	return array_map( 'trim', array_map( 'stripslashes', explode( WC_DELIMITER, $raw_attributes ) ) );
+}
+
+/**
  * Get attribute taxonomies.
  *
- * @return object
+ * @return array of objects
  */
 function wc_get_attribute_taxonomies() {
-
 	$transient_name = 'wc_attribute_taxonomies';
 
 	if ( false === ( $attribute_taxonomies = get_transient( $transient_name ) ) ) {
-
 		global $wpdb;
 
 		$attribute_taxonomies = $wpdb->get_results( "SELECT * FROM " . $wpdb->prefix . "woocommerce_attribute_taxonomies" );
@@ -30,7 +38,7 @@ function wc_get_attribute_taxonomies() {
 		set_transient( $transient_name, $attribute_taxonomies );
 	}
 
-	return apply_filters( 'woocommerce_attribute_taxonomies', $attribute_taxonomies );
+	return (array) array_filter( apply_filters( 'woocommerce_attribute_taxonomies', $attribute_taxonomies ) );
 }
 
 /**

@@ -74,7 +74,7 @@ class WC_Settings_Shipping extends WC_Settings_Page {
 				'title'         => __( 'Shipping Calculations', 'woocommerce' ),
 				'desc'          => __( 'Enable shipping', 'woocommerce' ),
 				'id'            => 'woocommerce_calc_shipping',
-				'default'       => 'yes',
+				'default'       => 'no',
 				'type'          => 'checkbox',
 				'checkboxgroup' => 'start'
 			),
@@ -120,7 +120,7 @@ class WC_Settings_Shipping extends WC_Settings_Page {
 				'options' => array(
 					'shipping'     => __( 'Default to shipping address', 'woocommerce' ),
 					'billing'      => __( 'Default to billing address', 'woocommerce' ),
-					'billing_only' => __( 'Only ship to the users billing address', 'woocommerce' ),
+					'billing_only' => __( 'Only ship to the customer\'s billing address', 'woocommerce' ),
 				),
 				'autoload'        => false,
 				'desc_tip'        =>  true,
@@ -222,7 +222,7 @@ class WC_Settings_Shipping extends WC_Settings_Page {
 								</td>
 								<td class="status">
 									<?php if ( 'yes' === $method->enabled ) : ?>
-										<span class="status-enabled tips" data-tip="<?php _e( 'Yes', 'woocommerce' ); ?>"><?php _e( 'Yes', 'woocommerce' ); ?></span>
+										<span class="status-enabled tips" data-tip="<?php esc_attr_e( 'Yes', 'woocommerce' ); ?>"><?php _e( 'Yes', 'woocommerce' ); ?></span>
 									<?php else : ?>
 										<span class="na">-</span>
 									<?php endif; ?>

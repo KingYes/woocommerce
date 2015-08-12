@@ -22,8 +22,6 @@ class WC_Admin_Taxonomies {
 	 * Constructor
 	 */
 	public function __construct() {
-		global $wc_product_attributes;
-
 		// Category/term ordering
 		add_action( 'create_term', array( $this, 'create_term' ), 5, 3 );
 		add_action( 'delete_term', array( $this, 'delete_term' ), 5 );
@@ -42,8 +40,12 @@ class WC_Admin_Taxonomies {
 		add_action( 'product_cat_pre_add_form', array( $this, 'product_cat_description' ) );
 		add_action( 'product_shipping_class_pre_add_form', array( $this, 'shipping_class_description' ) );
 
-		foreach ( array_keys( $wc_product_attributes ) as $attribute ) {
-			add_action( $attribute . '_pre_add_form', array( $this, 'product_attribute_description' ) );
+		$attribute_taxonomies = wc_get_attribute_taxonomies();
+
+		if ( $attribute_taxonomies ) {
+			foreach ( array_keys( $attribute_taxonomies ) as $attribute ) {
+				add_action( $attribute . '_pre_add_form', array( $this, 'product_attribute_description' ) );
+			}
 		}
 
 		// Maintain hierarchy of terms
@@ -326,7 +328,7 @@ class WC_Admin_Taxonomies {
 			// Ref: http://core.trac.wordpress.org/ticket/23605
 			$image = str_replace( ' ', '%20', $image );
 
-			$columns .= '<img src="' . esc_url( $image ) . '" alt="' . __( 'Thumbnail', 'woocommerce' ) . '" class="wp-post-image" height="48" width="48" />';
+			$columns .= '<img src="' . esc_url( $image ) . '" alt="' . esc_attr__( 'Thumbnail', 'woocommerce' ) . '" class="wp-post-image" height="48" width="48" />';
 
 		}
 

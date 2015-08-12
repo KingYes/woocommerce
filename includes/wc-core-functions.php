@@ -116,7 +116,7 @@ function wc_create_order( $args = array() ) {
 
 	update_post_meta( $order_id, '_order_version', WC_VERSION );
 
-	return new WC_Order( $order_id );
+	return wc_get_order( $order_id );
 }
 
 /**
@@ -137,7 +137,6 @@ function wc_update_order( $args ) {
  * @access public
  * @param mixed $slug
  * @param string $name (default: '')
- * @return void
  */
 function wc_get_template_part( $slug, $name = '' ) {
 	$template = '';
@@ -175,7 +174,6 @@ function wc_get_template_part( $slug, $name = '' ) {
  * @param array $args (default: array())
  * @param string $template_path (default: '')
  * @param string $default_path (default: '')
- * @return void
  */
 function wc_get_template( $template_name, $args = array(), $template_path = '', $default_path = '' ) {
 	if ( $args && is_array( $args ) ) {
@@ -257,6 +255,7 @@ function get_woocommerce_currencies() {
 		apply_filters( 'woocommerce_currencies',
 			array(
 				'AED' => __( 'United Arab Emirates Dirham', 'woocommerce' ),
+				'ARS' => __( 'Argentine Peso', 'woocommerce' ),
 				'AUD' => __( 'Australian Dollars', 'woocommerce' ),
 				'BDT' => __( 'Bangladeshi Taka', 'woocommerce' ),
 				'BRL' => __( 'Brazilian Real', 'woocommerce' ),
@@ -301,7 +300,7 @@ function get_woocommerce_currencies() {
 				'UAH' => __( 'Ukrainian Hryvnia', 'woocommerce' ),
 				'USD' => __( 'US Dollars', 'woocommerce' ),
 				'VND' => __( 'Vietnamese Dong', 'woocommerce' ),
-				'EGP' => __( 'Egyptian Pound', 'woocommerce' ),
+				'EGP' => __( 'Egyptian Pound', 'woocommerce' )
 			)
 		)
 	);
@@ -322,6 +321,7 @@ function get_woocommerce_currency_symbol( $currency = '' ) {
 			$currency_symbol = 'د.إ';
 			break;
 		case 'AUD' :
+		case 'ARS' :
 		case 'CAD' :
 		case 'CLP' :
 		case 'COP' :
@@ -353,7 +353,7 @@ function get_woocommerce_currency_symbol( $currency = '' ) {
 			$currency_symbol = '&#75;&#269;';
 			break;
 		case 'DKK' :
-			$currency_symbol = 'kr.';
+			$currency_symbol = 'DKK';
 			break;
 		case 'DOP' :
 			$currency_symbol = 'RD&#36;';
@@ -679,7 +679,7 @@ add_filter( 'mod_rewrite_rules', 'wc_ms_protect_download_rewite_rules' );
  * WooCommerce Core Supported Themes
  *
  * @since 2.2
- * @return array
+ * @return string[]
  */
 function wc_get_core_supported_themes() {
 	return array( 'twentyfifteen', 'twentyfourteen', 'twentythirteen', 'twentyeleven', 'twentytwelve', 'twentyten' );
@@ -749,12 +749,16 @@ function wc_get_base_location() {
 
 /**
  * Get the customer's default location. Filtered, and set to base location or left blank.
+ *
+ * If cache-busting, this should only be used when 'location' is set in the querystring.
+ *
  * @todo should the woocommerce_default_country option be renamed to contain 'base'?
  * @since 2.3.0
  * @return array
  */
 function wc_get_customer_default_location() {
 	switch ( get_option( 'woocommerce_default_customer_address' ) ) {
+		case 'geolocation_ajax' :
 		case 'geolocation' :
 			$location = WC_Geolocation::geolocate_ip();
 

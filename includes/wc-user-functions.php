@@ -120,8 +120,7 @@ function wc_create_new_customer( $email, $username = '', $password = '' ) {
 /**
  * Login a customer (set auth cookie and set global user object)
  *
- * @param  int $customer_id
- * @return void
+ * @param int $customer_id
  */
 function wc_set_customer_auth_cookie( $customer_id ) {
 	global $current_user;
@@ -188,7 +187,6 @@ function wc_update_new_customer_past_orders( $customer_id ) {
  *
  * @access public
  * @param int $order_id
- * @return void
  */
 function wc_paying_customer( $order_id ) {
 	$order = wc_get_order( $order_id );
@@ -249,11 +247,10 @@ function wc_customer_bought_product( $customer_email, $user_id, $product_id ) {
 				INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS im ON i.order_item_id = im.order_item_id
 				WHERE p.post_status IN ( 'wc-completed', 'wc-processing' )
 				AND pm.meta_key IN ( '_billing_email', '_customer_user' )
-				AND pm.meta_value IN ( '" . implode( "','", $customer_data ) . "' )
 				AND im.meta_key IN ( '_product_id', '_variation_id' )
-				AND im.meta_value = %s
+				AND im.meta_value = %d
 				", $product_id
-			)
+			) . " AND pm.meta_value IN ( '" . implode( "','", $customer_data ) . "' )"
 		);
 
 		set_transient( $transient_name, $result ? 1 : 0, DAY_IN_SECONDS * 30 );

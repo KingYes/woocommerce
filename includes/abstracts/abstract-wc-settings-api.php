@@ -3,7 +3,7 @@
  * Admin Settings API used by Shipping Methods and Payment Gateways
  *
  * @class    WC_Settings_API
- * @version  2.3.0
+ * @version  2.4.0
  * @package  WooCommerce/Abstracts
  * @category Abstract Class
  * @author   WooThemes
@@ -486,10 +486,9 @@ abstract class WC_Settings_API {
 			<td class="forminp">
 				<fieldset>
 					<legend class="screen-reader-text"><span><?php echo wp_kses_post( $data['title'] ); ?></span></legend>
-					<div class="color_box">
-						<input class="colorpick <?php echo esc_attr( $data['class'] ); ?>" type="text" name="<?php echo esc_attr( $field ); ?>" id="<?php echo esc_attr( $field ); ?>" style="<?php echo esc_attr( $data['css'] ); ?>" value="<?php echo esc_attr( $this->get_option( $key ) ); ?>" placeholder="<?php echo esc_attr( $data['placeholder'] ); ?>" <?php disabled( $data['disabled'], true ); ?> <?php echo $this->get_custom_attribute_html( $data ); ?> />
-						<div id="colorPickerDiv_<?php echo esc_attr( $field ); ?>" class="colorpickdiv" style="z-index: 100; background: #eee; border: 1px solid #ccc; position: absolute; display: none;"></div>
-					</div>
+					<span class="colorpickpreview" style="background:<?php echo esc_attr( $this->get_option( $key ) ); ?>;"></span>
+					<input class="colorpick <?php echo esc_attr( $data['class'] ); ?>" type="text" name="<?php echo esc_attr( $field ); ?>" id="<?php echo esc_attr( $field ); ?>" style="<?php echo esc_attr( $data['css'] ); ?>" value="<?php echo esc_attr( $this->get_option( $key ) ); ?>" placeholder="<?php echo esc_attr( $data['placeholder'] ); ?>" <?php disabled( $data['disabled'], true ); ?> <?php echo $this->get_custom_attribute_html( $data ); ?> />
+					<div id="colorPickerDiv_<?php echo esc_attr( $field ); ?>" class="colorpickdiv" style="z-index: 100; background: #eee; border: 1px solid #ccc; position: absolute; display: none;"></div>
 					<?php echo $this->get_description_html( $data ); ?>
 				</fieldset>
 			</td>
@@ -850,12 +849,13 @@ abstract class WC_Settings_API {
 
 		$text  = $this->get_option( $key );
 		$field = $this->get_field_key( $key );
+		$value = trim( stripslashes( $_POST[ $field ] ) );
 
 		if ( isset( $_POST[ $field ] ) ) {
-			$text = wc_clean( stripslashes( $_POST[ $field ] ) );
+			$text = wp_kses_post( $value );
 		}
 
-		return $text;
+		return $text === $value ? $text : '';
 	}
 
 	/**

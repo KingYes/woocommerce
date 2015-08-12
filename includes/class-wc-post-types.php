@@ -28,6 +28,7 @@ class WC_Post_types {
 		add_action( 'init', array( __CLASS__, 'register_post_types' ), 5 );
 		add_action( 'init', array( __CLASS__, 'register_post_status' ), 9 );
 		add_action( 'init', array( __CLASS__, 'support_jetpack_omnisearch' ) );
+		add_filter( 'rest_api_allowed_post_types', array( __CLASS__, 'rest_api_allowed_post_types' ) );
 	}
 
 	/**
@@ -230,20 +231,24 @@ class WC_Post_types {
 			apply_filters( 'woocommerce_register_post_type_product',
 				array(
 					'labels'              => array(
-							'name'               => __( 'Products', 'woocommerce' ),
-							'singular_name'      => __( 'Product', 'woocommerce' ),
-							'menu_name'          => _x( 'Products', 'Admin menu name', 'woocommerce' ),
-							'add_new'            => __( 'Add Product', 'woocommerce' ),
-							'add_new_item'       => __( 'Add New Product', 'woocommerce' ),
-							'edit'               => __( 'Edit', 'woocommerce' ),
-							'edit_item'          => __( 'Edit Product', 'woocommerce' ),
-							'new_item'           => __( 'New Product', 'woocommerce' ),
-							'view'               => __( 'View Product', 'woocommerce' ),
-							'view_item'          => __( 'View Product', 'woocommerce' ),
-							'search_items'       => __( 'Search Products', 'woocommerce' ),
-							'not_found'          => __( 'No Products found', 'woocommerce' ),
-							'not_found_in_trash' => __( 'No Products found in trash', 'woocommerce' ),
-							'parent'             => __( 'Parent Product', 'woocommerce' )
+							'name'                  => __( 'Products', 'woocommerce' ),
+							'singular_name'         => __( 'Product', 'woocommerce' ),
+							'menu_name'             => _x( 'Products', 'Admin menu name', 'woocommerce' ),
+							'add_new'               => __( 'Add Product', 'woocommerce' ),
+							'add_new_item'          => __( 'Add New Product', 'woocommerce' ),
+							'edit'                  => __( 'Edit', 'woocommerce' ),
+							'edit_item'             => __( 'Edit Product', 'woocommerce' ),
+							'new_item'              => __( 'New Product', 'woocommerce' ),
+							'view'                  => __( 'View Product', 'woocommerce' ),
+							'view_item'             => __( 'View Product', 'woocommerce' ),
+							'search_items'          => __( 'Search Products', 'woocommerce' ),
+							'not_found'             => __( 'No Products found', 'woocommerce' ),
+							'not_found_in_trash'    => __( 'No Products found in trash', 'woocommerce' ),
+							'parent'                => __( 'Parent Product', 'woocommerce' ),
+							'featured_image'        => __( 'Product Image', 'woocommerce' ),
+							'set_featured_image'    => __( 'Set product image', 'woocommerce' ),
+							'remove_featured_image' => __( 'Remove product image', 'woocommerce' ),
+							'use_featured_image'    => __( 'Use as product image', 'woocommerce' ),
 						),
 					'description'         => __( 'This is where you can add new products to your store.', 'woocommerce' ),
 					'public'              => true,
@@ -477,6 +482,18 @@ class WC_Post_types {
 		if ( class_exists( 'Jetpack_Omnisearch_Posts' ) ) {
 			new Jetpack_Omnisearch_Posts( 'product' );
 		}
+	}
+
+	/**
+	 * Added product for Jetpack related posts
+	 *
+	 * @param  array $post_types
+	 * @return array
+	 */
+	public static function rest_api_allowed_post_types( $post_types ) {
+		$post_types[] = 'product';
+
+		return $post_types;
 	}
 }
 

@@ -222,7 +222,6 @@ class WC_Email extends WC_Settings_API {
 		// Find/replace
 		$this->find['blogname']      = '{blogname}';
 		$this->find['site-title']    = '{site_title}';
-
 		$this->replace['blogname']   = $this->get_blogname();
 		$this->replace['site-title'] = $this->get_blogname();
 
@@ -241,7 +240,6 @@ class WC_Email extends WC_Settings_API {
 		if ( $this->sending && $this->get_email_type() == 'multipart' ) {
 
 			$mailer->AltBody = wordwrap( preg_replace( $this->plain_search, $this->plain_replace, strip_tags( $this->get_content_plain() ) ) );
-			//$mailer->AltBody = wordwrap( html_entity_decode( strip_tags( $this->get_content_plain() ) ), 70 );
 			$this->sending = false;
 		}
 
@@ -255,7 +253,7 @@ class WC_Email extends WC_Settings_API {
 	 * @return string
 	 */
 	public function format_string( $string ) {
-		return str_replace( $this->find, $this->replace, $string );
+		return str_replace( apply_filters( 'woocommerce_email_format_string_find', $this->find, $this ), apply_filters( 'woocommerce_email_format_string_replace', $this->replace, $this ), $string );
 	}
 
 	/**
@@ -805,45 +803,47 @@ class WC_Email extends WC_Settings_API {
 			</div>
 			<?php
 			wc_enqueue_js( "
-				jQuery('select.email_type').change(function() {
+				jQuery( 'select.email_type' ).change( function() {
 
 					var val = jQuery( this ).val();
 
-					jQuery('.template_plain, .template_html').show();
+					jQuery( '.template_plain, .template_html' ).show();
 
-					if ( val != 'multipart' && val != 'html' )
+					if ( val != 'multipart' && val != 'html' ) {
 						jQuery('.template_html').hide();
+					}
 
-					if ( val != 'multipart' && val != 'plain' )
+					if ( val != 'multipart' && val != 'plain' ) {
 						jQuery('.template_plain').hide();
+					}
 
 				}).change();
 
 				var view = '" . esc_js( __( 'View template', 'woocommerce' ) ) . "';
 				var hide = '" . esc_js( __( 'Hide template', 'woocommerce' ) ) . "';
 
-				jQuery('a.toggle_editor').text( view ).toggle( function() {
-					jQuery( this ).text( hide ).closest('.template').find('.editor').slideToggle();
+				jQuery( 'a.toggle_editor' ).text( view ).toggle( function() {
+					jQuery( this ).text( hide ).closest(' .template' ).find( '.editor' ).slideToggle();
 					return false;
 				}, function() {
-					jQuery( this ).text( view ).closest('.template').find('.editor').slideToggle();
+					jQuery( this ).text( view ).closest( '.template' ).find( '.editor' ).slideToggle();
 					return false;
 				} );
 
-				jQuery('a.delete_template').click(function(){
-					var answer = confirm('" . esc_js( __( 'Are you sure you want to delete this template file?', 'woocommerce' ) ) . "');
-
-					if (answer)
+				jQuery( 'a.delete_template' ).click( function() {
+					if ( window.confirm('" . esc_js( __( 'Are you sure you want to delete this template file?', 'woocommerce' ) ) . "') ) {
 						return true;
+					}
 
 					return false;
 				});
 
-				jQuery('.editor textarea').change(function(){
-					var name = jQuery(this).attr( 'data-name' );
+				jQuery( '.editor textarea' ).change( function() {
+					var name = jQuery( this ).attr( 'data-name' );
 
-					if ( name )
-						jQuery(this).attr( 'name', name );
+					if ( name ) {
+						jQuery( this ).attr( 'name', name );
+					}
 				});
 			" );
 		}
